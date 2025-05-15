@@ -49,7 +49,7 @@ fun LoginScreen(navController: NavController) {
                 contentScale = ContentScale.FillWidth,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp)
+                    .height(210.dp)
                     .align(Alignment.TopCenter)
             )
 
@@ -64,7 +64,7 @@ fun LoginScreen(navController: NavController) {
                 Image(
                     painter = painterResource(id = R.drawable.logo_uin),
                     contentDescription = "Logo",
-                    modifier = Modifier.size(350.dp)
+                    modifier = Modifier.size(290.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 // Added image below logo and above email
@@ -72,7 +72,7 @@ fun LoginScreen(navController: NavController) {
                     painter = painterResource(id = R.drawable.setoran_text),
                     contentDescription = "Setoran Text",
                     modifier = Modifier
-                        .height(28.dp)
+                        .height(24.dp)
                         .fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -122,7 +122,7 @@ fun LoginScreen(navController: NavController) {
                         .height(60.dp)
                         .padding(top = 16.dp),
                     shape = RoundedCornerShape(30.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF008B8B))
                 ) {
                     Text("login", color = Color.White)
                 }
