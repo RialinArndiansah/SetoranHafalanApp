@@ -9,57 +9,43 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import com.example.setoranhafalanapp.R
-import com.example.setoranhafalanapp.ui.login.LoginViewModel
-import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.rememberPagerState
-import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.setoranhafalanapp.R
+import com.example.setoranhafalanapp.ui.login.LoginViewModel
+import kotlinx.coroutines.launch
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.geometry.Offset
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,16 +57,16 @@ fun DashboardScreen(navController: NavController) {
     val userName by dashboardViewModel.userName.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    
+
     // Tab state untuk bottom navigation
     var selectedTab by remember { mutableStateOf(0) }
-    
+
     // Warna Teal untuk seluruh aplikasi
     val tealPrimary = Color(0xFF008B8B)    // Hijau kebiruan (teal)
     val tealDark = Color(0xFF006666)       // Teal gelap
     val tealLight = Color(0xFF00AEAE)      // Teal cerah
     val tealPastel = Color(0xFFE0F7FA)     // Teal sangat muda
-    
+
     LaunchedEffect(Unit) {
         dashboardViewModel.fetchSetoranSaya()
     }
@@ -96,12 +82,12 @@ fun DashboardScreen(navController: NavController) {
                         .background(tealPrimary)
                 ) {
                     TopAppBar(
-                        title = { 
+                        title = {
                             Text(
-                                "Dashboard Setoran", 
+                                "Dashboard Setoran",
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge
-                            ) 
+                            )
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent
@@ -116,7 +102,7 @@ fun DashboardScreen(navController: NavController) {
                                 }
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.ExitToApp, 
+                                    imageVector = Icons.Rounded.ExitToApp,
                                     contentDescription = "Logout",
                                     tint = Color.White
                                 )
@@ -141,11 +127,11 @@ fun DashboardScreen(navController: NavController) {
                             tint = if (selectedTab == 0) tealPrimary else Color.Gray
                         )
                     },
-                    label = { 
+                    label = {
                         Text(
                             "Setoran",
                             color = if (selectedTab == 0) tealPrimary else Color.Gray
-                        ) 
+                        )
                     }
                 )
                 NavigationBarItem(
@@ -158,11 +144,11 @@ fun DashboardScreen(navController: NavController) {
                             tint = if (selectedTab == 1) tealPrimary else Color.Gray
                         )
                     },
-                    label = { 
+                    label = {
                         Text(
                             "Profil",
                             color = if (selectedTab == 1) tealPrimary else Color.Gray
-                        ) 
+                        )
                     }
                 )
             }
@@ -198,7 +184,7 @@ fun SetoranContent(
     val tealPrimary = Color(0xFF008B8B)    // Hijau kebiruan (teal)
     val tealLight = Color(0xFF00AEAE)      // Teal cerah
     val tealPastel = Color(0xFFE0F7FA)     // Teal sangat muda
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -216,7 +202,7 @@ fun SetoranContent(
 
             is DashboardState.Success -> {
                 val data = state.data.data
-                
+
                 // Progress Circle
                 Box(
                     modifier = Modifier
@@ -231,12 +217,12 @@ fun SetoranContent(
                             style = Stroke(width = 16.dp.toPx())
                         )
                     }
-                    
+
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "0.0%",
+                            text = "${data.setoran.info_dasar.persentase_progres_setor}%",
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = tealPrimary
@@ -275,6 +261,7 @@ fun SetoranContent(
                         SetoranCard(
                             nama = item.nama,
                             label = item.label,
+                            sudahSetor = item.sudah_setor,
                             tealColor = tealPrimary,
                             tealPastelColor = tealPastel
                         )
@@ -297,8 +284,9 @@ fun SetoranContent(
 
 @Composable
 fun SetoranCard(
-    nama: String, 
+    nama: String,
     label: String,
+    sudahSetor: Boolean,
     tealColor: Color,
     tealPastelColor: Color
 ) {
@@ -328,7 +316,7 @@ fun SetoranCard(
                     .clip(RoundedCornerShape(topStart = 80.dp, bottomStart = 80.dp))
                     .background(tealPastelColor)
             )
-            
+
             // Konten kartu
             Row(
                 modifier = Modifier
@@ -349,7 +337,7 @@ fun SetoranCard(
                             color = Color.Black
                         )
                     )
-                    
+
                     // Row untuk Label dan Status
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -372,32 +360,32 @@ fun SetoranCard(
                                 )
                             )
                         }
-                        
-                        // Status "Belum Setor" dengan ikon lingkaran
+
+                        // Status dengan ikon lingkaran
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            // Ikon lingkaran merah
+                            // Ikon lingkaran (CheckCircle untuk sudah setor, RadioButtonUnchecked untuk belum setor)
                             Icon(
-                                imageVector = Icons.Rounded.RadioButtonUnchecked,
-                                contentDescription = null,
-                                tint = Color.Red,
+                                imageVector = if (sudahSetor) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                                contentDescription = if (sudahSetor) "Sudah Setor" else "Belum Setor",
+                                tint = if (sudahSetor) tealColor else Color.Red,
                                 modifier = Modifier.size(16.dp)
                             )
-                            
-                            // Teks "Belum Setor"
+
+                            // Teks status
                             Text(
-                                text = "Belum Setor",
+                                text = if (sudahSetor) "Sudah Setor" else "Belum Setor",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color.Red,
+                                    color = if (sudahSetor) tealColor else Color.Red,
                                     fontWeight = FontWeight.Medium
                                 )
                             )
                         }
                     }
                 }
-                
+
                 // Ikon More (titik tiga)
                 IconButton(
                     onClick = { },
@@ -424,7 +412,7 @@ fun ProfileContent(
     val tealDark = Color(0xFF006666)       // Teal gelap
     val tealLight = Color(0xFF00AEAE)      // Teal cerah
     val tealPastel = Color(0xFFE0F7FA)     // Teal sangat muda
-    
+
     // State untuk foto profil
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     val launcher = rememberLauncherForActivityResult(
@@ -432,10 +420,10 @@ fun ProfileContent(
     ) { uri: Uri? ->
         uri?.let { imageUri = it }
     }
-    
+
     // Tambahkan scrollable state
     val scrollState = rememberScrollState()
-    
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -461,8 +449,8 @@ fun ProfileContent(
                         .background(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    tealLight, 
-                                    tealPrimary, 
+                                    tealLight,
+                                    tealPrimary,
                                     tealDark
                                 ),
                                 start = Offset(0f, 0f),
@@ -509,7 +497,7 @@ fun ProfileContent(
                                     )
                                 }
                             }
-                            
+
                             // Camera icon
                             Box(
                                 modifier = Modifier
@@ -529,12 +517,12 @@ fun ProfileContent(
                                 )
                             }
                         }
-                        
+
                         // Nama dan Jurusan
                         when (val state = dashboardState) {
                             is DashboardState.Success -> {
                                 val data = state.data.data
-                                
+
                                 Text(
                                     text = data.info.nama,
                                     style = MaterialTheme.typography.titleMedium.copy(
@@ -543,7 +531,7 @@ fun ProfileContent(
                                     ),
                                     modifier = Modifier.padding(top = 16.dp)
                                 )
-                                
+
                                 Text(
                                     text = "Teknik Informatika",
                                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -563,12 +551,12 @@ fun ProfileContent(
                     }
                 }
             }
-            
-            // Card untuk informasi profil - Sebagai bagian dari content yang scrollable
+
+            // Card untuk informasi profil
             when (val state = dashboardState) {
                 is DashboardState.Success -> {
                     val data = state.data.data
-                    
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -593,35 +581,35 @@ fun ProfileContent(
                                 value = data.info.nama,
                                 greenColor = tealPrimary
                             )
-                            
+
                             ProfileInfoItem(
                                 icon = Icons.Outlined.Badge,
                                 label = "NIM",
                                 value = data.info.nim,
                                 greenColor = tealPrimary
                             )
-                            
+
                             ProfileInfoItem(
                                 icon = Icons.Outlined.Email,
                                 label = "E-mail",
                                 value = data.info.email,
                                 greenColor = tealPrimary
                             )
-                            
+
                             ProfileInfoItem(
                                 icon = Icons.Outlined.CalendarToday,
                                 label = "Angkatan",
                                 value = "Tahun ${data.info.angkatan}",
                                 greenColor = tealPrimary
                             )
-                            
+
                             ProfileInfoItem(
                                 icon = Icons.Outlined.MenuBook,
                                 label = "Semester",
                                 value = data.info.semester.toString(),
                                 greenColor = tealPrimary
                             )
-                            
+
                             ProfileInfoItem(
                                 icon = Icons.Outlined.SupervisorAccount,
                                 label = "Dosen Pembimbing",
@@ -631,7 +619,7 @@ fun ProfileContent(
                             )
                         }
                     }
-                    
+
                     // Tambahkan spacer di bawah untuk scroll area yang cukup
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -676,9 +664,9 @@ fun ProfileInfoItem(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             // Content
             Column {
                 Text(
@@ -687,7 +675,7 @@ fun ProfileInfoItem(
                         color = Color.Gray
                     )
                 )
-                
+
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -697,7 +685,7 @@ fun ProfileInfoItem(
                 )
             }
         }
-        
+
         if (showDivider) {
             Divider(
                 color = Color.LightGray.copy(alpha = 0.5f),
