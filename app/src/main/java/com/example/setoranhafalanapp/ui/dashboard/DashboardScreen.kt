@@ -57,6 +57,9 @@ import android.util.Log
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import java.io.File
+import java.io.FileOutputStream
+import android.content.Context
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -479,12 +482,67 @@ fun ProfileContent(
     val tealLight = Color(0xFF00AEAE)      // Teal cerah
     val tealPastel = Color(0xFFE0F7FA)     // Teal sangat muda
 
-    // State untuk foto profil
+    // Get the context for file operations
+    val context = LocalContext.current
+    
+    // State for photo URI
     var imageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Function to save image to local storage
+    fun saveImageToLocal(uri: Uri): Uri {
+        // Create file in app's private storage directory
+        val timeStamp = System.currentTimeMillis()
+        val storageDir = context.filesDir
+        val fileName = "profile_photo_$timeStamp.jpg"
+        val imageFile = File(storageDir, fileName)
+        
+        try {
+            // Copy the selected image to our app's private storage
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val outputStream = FileOutputStream(imageFile)
+            inputStream?.use { input ->
+                outputStream.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            // Save the file path to SharedPreferences
+            val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+            with(sharedPrefs.edit()) {
+                putString("profile_photo", imageFile.absolutePath)
+                apply()
+            }
+            
+            // Return the URI for the saved file
+            return Uri.fromFile(imageFile)
+        } catch (e: Exception) {
+            Log.e("ProfileContent", "Failed to save image: ${e.message}", e)
+            // Return original URI if saving failed
+            return uri
+        }
+    }
+    
+    // Load saved profile photo on initial composition
+    LaunchedEffect(Unit) {
+        val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+        val savedPhotoPath = sharedPrefs.getString("profile_photo", null)
+        if (savedPhotoPath != null) {
+            val file = File(savedPhotoPath)
+            if (file.exists()) {
+                imageUri = Uri.fromFile(file)
+            }
+        }
+    }
+    
+    // Image picker result handler
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { imageUri = it }
+        uri?.let {
+            // Save selected image to local storage
+            val savedUri = saveImageToLocal(it)
+            imageUri = savedUri
+        }
     }
 
     // Tambahkan scrollable state
