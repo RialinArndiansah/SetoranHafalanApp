@@ -788,25 +788,7 @@ fun SetoranSayaScreen(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // Header
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = tealPrimary,
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(vertical = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Setoran Saya",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-            )
-        }
+
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1010,8 +992,8 @@ fun SetoranDetailScreen(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = kategori, // Keep original case for display
-                            color = Color.White,
+                            text = kategori,
+                            color = Color.Black,
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -1022,24 +1004,25 @@ fun SetoranDetailScreen(
                             Icon(
                                 imageVector = Icons.Outlined.ArrowBack,
                                 contentDescription = "Kembali",
-                                tint = Color.White
+                                tint = Color.Black
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = tealPrimary
+                        containerColor = Color.White
                     ),
                     actions = {
                         IconButton(onClick = { /* Add search functionality */ }) {
                             Icon(
                                 imageVector = Icons.Outlined.Search,
                                 contentDescription = "Cari",
-                                tint = Color.White
+                                tint = Color.Black
                             )
                         }
                     }
                 )
-            }
+            }           
+            
         }
     ) { padding ->
         when (val state = dashboardState) {
