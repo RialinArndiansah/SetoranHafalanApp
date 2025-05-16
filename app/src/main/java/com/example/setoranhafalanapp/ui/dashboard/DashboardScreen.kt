@@ -54,6 +54,9 @@ import androidx.compose.ui.geometry.Offset
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import android.util.Log
+import kotlinx.coroutines.delay
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -777,18 +780,45 @@ fun SetoranSayaScreen(
     val categoryNames = listOf("KP", "SEMKP", "DAFTAR_TA", "SEMPRO", "SIDANG_TA")
         .map { it.trim().uppercase() }
     
+    // Auto-scroll state
+    val scrollState = rememberScrollState()
+    val autoScrollEnabled = remember { mutableStateOf(true) }
+    var currentPage by remember { mutableStateOf(0) }
+    val pagerState = rememberPagerState { categoryNames.size }
+    
     LaunchedEffect(Unit) {
         dashboardViewModel.fetchSetoranSaya()
+    }
+    
+    // Auto-scrolling effect
+    LaunchedEffect(autoScrollEnabled.value) {
+        if (autoScrollEnabled.value) {
+            while (true) {
+                delay(3000) // Auto-scroll every 3 seconds
+                if (currentPage < categoryNames.size - 1) {
+                    currentPage++
+                } else {
+                    currentPage = 0
+                }
+                pagerState.animateScrollToPage(currentPage)
+            }
+        }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+            .padding(top = 16.dp, bottom = 16.dp)
     ) {
-
+        Text(
+            text = "Kategori Setoran",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -857,22 +887,87 @@ fun SetoranSayaScreen(
                 // Sort categories
                 val sortedCategories = allCategories.toList().sorted()
                 
-                // Display each category
-                sortedCategories.forEachIndexed { index, categoryName ->
-                    // Debug logging for each category shown
-                    Log.d("SetoranApp", "Showing category $index: '$categoryName'")
-                    
-                    val progress = categoryProgress[categoryName] ?: 0
-                    KategoriSetoranCard(
-                        kategori = KategoriSetoran(
-                            nama = categoryName, // We could revert to original casing here if needed
-                            progress = progress
-                        ),
-                        onCardClick = {
-                            navController.navigate("detailSetoran/$categoryName")
+                // Modern Card Pager View for horizontal scrolling with auto-animation
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // HorizontalPager for modern card view
+                    HorizontalPager(
+                        state = pagerState,
+                        contentPadding = PaddingValues(horizontal = 32.dp),
+                        modifier = Modifier
+                            .height(320.dp)
+                            .fillMaxWidth()
+                    ) { page ->
+                        if (page < sortedCategories.size) {
+                            val categoryName = sortedCategories[page]
+                            val progress = categoryProgress[categoryName] ?: 0
+                            ModernKategoriCard(
+                                kategori = KategoriSetoran(
+                                    nama = categoryName,
+                                    progress = progress
+                                ),
+                                total = categoryItemCounts[categoryName] ?: 0,
+                                completed = categoryCompletedCounts[categoryName] ?: 0,
+                                onCardClick = {
+                                    autoScrollEnabled.value = false
+                                    navController.navigate("detailSetoran/$categoryName")
+                                }
+                            )
                         }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    // Page indicator dots
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(sortedCategories.size) { index ->
+                            val isSelected = pagerState.currentPage == index
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .size(if (isSelected) 10.dp else 8.dp)
+                                    .background(
+                                        color = if (isSelected) tealPrimary else Color.LightGray,
+                                        shape = CircleShape
+                                    )
+                                    .clickable {
+                                        currentPage = index
+                                        autoScrollEnabled.value = false
+                                    }
+                            )
+                        }
+                    }
+                }
+                
+                // Add setion title for recent progress
+                Text(
+                    text = "Kemajuan Terbaru",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                )
+                
+                // List of recently updated items
+                val recentItems = normalizedCategories
+                    .filter { it.sudah_setor }
+                    .take(3) // Just take a few recent items
+                
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(recentItems) { item ->
+                        RecentProgressCard(
+                            nama = item.nama,
+                            kategori = item.label,
+                            tealColor = tealPrimary
+                        )
+                    }
                 }
             }
             
@@ -896,69 +991,222 @@ fun SetoranSayaScreen(
 }
 
 @Composable
-fun KategoriSetoranCard(
+fun ModernKategoriCard(
     kategori: KategoriSetoran,
+    total: Int,
+    completed: Int,
     onCardClick: () -> Unit
 ) {
     val tealPrimary = Color(0xFF2A9D8F)
-    val greyLight = Color(0xFFE0E0E0)
-    
+    val tealLight = Color(0xFFE0F7FA)
+    val gradientColors = listOf(tealPrimary, Color(0xFF1A7F73)) // Darker gradient for depth
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .height(300.dp)
+            .padding(8.dp)
             .clickable(onClick = onCardClick),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Background with gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .background(
+                        Brush.horizontalGradient(gradientColors)
+                    )
+            )
+            
+            // Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Title section
+                Column {
+                    Text(
+                        text = kategori.nama.replace('_', ' '),
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                    
+                    Text(
+                        text = "$completed dari $total surat",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.White
+                        )
+                    )
+                }
+                
+                // Progress indicator
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Left column with progress text
+                    Column {
+                        Text(
+                            text = "Progress",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Black
+                            )
+                        )
+                        
+                        Text(
+                            text = "${kategori.progress}% Selesai",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Gray
+                            )
+                        )
+                    }
+                    
+                    // Circular progress indicator
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(80.dp)
+                    ) {
+                        // Background circle
+                        Canvas(modifier = Modifier.size(80.dp)) {
+                            drawCircle(
+                                color = tealLight,
+                                radius = size.minDimension / 2,
+                                style = Stroke(width = 12.dp.toPx())
+                            )
+                        }
+                        
+                        // Progress circle
+                        Canvas(modifier = Modifier.size(80.dp)) {
+                            drawArc(
+                                color = tealPrimary,
+                                startAngle = -90f,
+                                sweepAngle = 3.6f * kategori.progress,
+                                useCenter = false,
+                                style = Stroke(width = 12.dp.toPx())
+                            )
+                        }
+                        
+                        // Progress text in center
+                        Text(
+                            text = "${kategori.progress}%",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = tealPrimary
+                            )
+                        )
+                    }
+                }
+                
+                // Spacer to push the button down
+                Spacer(modifier = Modifier.weight(1f))
+                
+                // Action button
+                Button(
+                    onClick = onCardClick,
+                    modifier = Modifier
+                        .align(Alignment.End),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = tealPrimary
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Lihat Detail")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Outlined.ArrowForward,
+                        contentDescription = "Lihat Detail"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RecentProgressCard(
+    nama: String,
+    kategori: String,
+    tealColor: Color
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Kategori info
-            Text(
-                text = kategori.nama,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF212121)
-                )
-            )
-            
-            // Circular progress indicator
+            // Check icon in circle
             Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = tealColor.copy(alpha = 0.1f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                // Background circle
-                Canvas(modifier = Modifier.size(48.dp)) {
-                    drawCircle(
-                        color = greyLight,
-                        radius = size.minDimension / 2
-                    )
-                }
-                
-                // Progress circle
-                Canvas(modifier = Modifier.size(48.dp)) {
-                    drawArc(
-                        color = tealPrimary,
-                        startAngle = -90f,
-                        sweepAngle = 3.6f * kategori.progress,
-                        useCenter = false,
-                        style = Stroke(width = 5.dp.toPx())
-                    )
-                }
-                
-                // Progress text
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = tealColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column {
                 Text(
-                    text = "${kategori.progress}%",
+                    text = nama,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                
+                Text(
+                    text = kategori.replace('_', ' '),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Bold
+                        color = Color.Gray
                     )
                 )
             }
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // Time/date info (mock data)
+            Text(
+                text = "Hari ini",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.Gray
+                )
+            )
         }
     }
 }
@@ -1074,6 +1322,7 @@ fun SetoranDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            // Text content
                             Column {
                                 Text(
                                     text = "Progress Setoran $kategori",
@@ -1089,29 +1338,37 @@ fun SetoranDetailScreen(
                                 )
                             }
                             
+                            // Circular progress indicator with larger size
                             Box(
                                 contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(60.dp)
+                                modifier = Modifier.size(80.dp)
                             ) {
-                                Canvas(modifier = Modifier.size(60.dp)) {
+                                // Background circle
+                                Canvas(modifier = Modifier.size(80.dp)) {
                                     drawCircle(
                                         color = tealPastel,
-                                        radius = size.minDimension / 2
+                                        radius = size.minDimension / 2,
+                                        style = Stroke(width = 10.dp.toPx())
                                     )
-                                    
+                                }
+                                
+                                // Progress circle
+                                Canvas(modifier = Modifier.size(80.dp)) {
                                     drawArc(
                                         color = tealPrimary,
                                         startAngle = -90f,
                                         sweepAngle = 3.6f * progressPercentage,
                                         useCenter = false,
-                                        style = Stroke(width = 8.dp.toPx())
+                                        style = Stroke(width = 10.dp.toPx())
                                     )
                                 }
                                 
+                                // Progress text
                                 Text(
                                     text = "$progressPercentage%",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = tealPrimary
                                     )
                                 )
                             }
