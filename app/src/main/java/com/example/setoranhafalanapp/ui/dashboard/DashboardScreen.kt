@@ -60,8 +60,33 @@ import androidx.compose.foundation.pager.rememberPagerState
 import java.io.File
 import java.io.FileOutputStream
 import android.content.Context
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.util.lerp
+import kotlin.math.absoluteValue
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun DashboardScreen(navController: NavController) {
     val context = LocalContext.current
@@ -73,7 +98,10 @@ fun DashboardScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
 
     // Tab state untuk bottom navigation
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    
+    // Remember previous tab for animation direction
+    var previousTab by remember { mutableIntStateOf(0) }
     
     // Navigation controller for internal navigation within the dashboard
     val dashboardNavController = rememberNavController()
@@ -141,7 +169,10 @@ fun DashboardScreen(navController: NavController) {
             ) {
                 NavigationBarItem(
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
+                    onClick = { 
+                        previousTab = selectedTab
+                        selectedTab = 0
+                    },
                     icon = {
                         Icon(
                             imageVector = Icons.Rounded.RadioButtonUnchecked,
@@ -159,6 +190,7 @@ fun DashboardScreen(navController: NavController) {
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { 
+                        previousTab = selectedTab
                         selectedTab = 1
                         // Reset to the main setoran saya screen when tab is selected
                         if (dashboardNavController.currentBackStackEntry?.destination?.route?.startsWith("detailSetoran") == true) {
@@ -181,7 +213,10 @@ fun DashboardScreen(navController: NavController) {
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
+                    onClick = { 
+                        previousTab = selectedTab
+                        selectedTab = 2 
+                    },
                     icon = {
                         Icon(
                             imageVector = Icons.Rounded.AccountCircle,
@@ -204,40 +239,68 @@ fun DashboardScreen(navController: NavController) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (selectedTab) {
-                0 -> SetoranContent(
-                    dashboardState = dashboardState,
-                    snackbarHostState = snackbarHostState,
-                    scope = scope
-                )
-                1 -> NavHost(
-                    navController = dashboardNavController,
-                    startDestination = "setoranSaya"
-                ) {
-                    composable("setoranSaya") {
-                        SetoranSayaScreen(navController = dashboardNavController)
-                    }
-                    composable(
-                        route = "detailSetoran/{kategori}",
-                        arguments = listOf(
-                            navArgument("kategori") { type = NavType.StringType }
-                        )
-                    ) { backStackEntry ->
-                        val kategori = backStackEntry.arguments?.getString("kategori") ?: "KP"
-                        
-                        // Add logging to help debug
-                        Log.d("SetoranApp", "Opening detail for kategori: $kategori")
-                        
-                        SetoranDetailScreen(
-                            kategori = kategori,
-                            navController = dashboardNavController
-                        )
-                    }
+            // Animated content transition based on selected tab
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    // Determine direction based on tab indices
+                    val direction = if (targetState > initialState) 
+                        AnimatedContentTransitionScope.SlideDirection.Left 
+                    else 
+                        AnimatedContentTransitionScope.SlideDirection.Right
+                    
+                    // Create slide animation with fade
+                    slideInHorizontally(
+                        animationSpec = tween(400, easing = EaseOut),
+                        initialOffsetX = { fullWidth ->
+                            // Slide in from right or left based on direction
+                            if (direction == AnimatedContentTransitionScope.SlideDirection.Left) fullWidth else -fullWidth
+                        }
+                    ) + fadeIn(tween(300)) togetherWith
+                    slideOutHorizontally(
+                        animationSpec = tween(400, easing = EaseIn),
+                        targetOffsetX = { fullWidth ->
+                            // Slide out to right or left based on direction
+                            if (direction == AnimatedContentTransitionScope.SlideDirection.Left) -fullWidth else fullWidth
+                        }
+                    ) + fadeOut(tween(300)) using SizeTransform(clip = false)
                 }
-                2 -> ProfileContent(
-                    dashboardState = dashboardState,
-                    userName = userName
-                )
+            ) { targetTab ->
+                when (targetTab) {
+                    0 -> SetoranContent(
+                        dashboardState = dashboardState,
+                        snackbarHostState = snackbarHostState,
+                        scope = scope
+                    )
+                    1 -> NavHost(
+                        navController = dashboardNavController,
+                        startDestination = "setoranSaya"
+                    ) {
+                        composable("setoranSaya") {
+                            SetoranSayaScreen(navController = dashboardNavController)
+                        }
+                        composable(
+                            route = "detailSetoran/{kategori}",
+                            arguments = listOf(
+                                navArgument("kategori") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val kategori = backStackEntry.arguments?.getString("kategori") ?: "KP"
+                            
+                            // Add logging to help debug
+                            Log.d("SetoranApp", "Opening detail for kategori: $kategori")
+                            
+                            SetoranDetailScreen(
+                                kategori = kategori,
+                                navController = dashboardNavController
+                            )
+                        }
+                    }
+                    2 -> ProfileContent(
+                        dashboardState = dashboardState,
+                        userName = userName
+                    )
+                }
             }
         }
     }
@@ -831,6 +894,9 @@ fun SetoranSayaScreen(
     val dashboardViewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.getFactory(context))
     val dashboardState by dashboardViewModel.dashboardState.collectAsState()
     
+    // Define coroutine scope for animations
+    val scope = rememberCoroutineScope()
+    
     // Definisi warna
     val tealPrimary = Color(0xFF2A9D8F) // Biru kehijauan sesuai permintaan
 
@@ -844,21 +910,34 @@ fun SetoranSayaScreen(
     var currentPage by remember { mutableStateOf(0) }
     val pagerState = rememberPagerState { categoryNames.size }
     
+    // Animation specs
+    val animationSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+    
     LaunchedEffect(Unit) {
         dashboardViewModel.fetchSetoranSaya()
     }
     
-    // Auto-scrolling effect
+    // Auto-scrolling effect with smoother animation
     LaunchedEffect(autoScrollEnabled.value) {
         if (autoScrollEnabled.value) {
             while (true) {
-                delay(3000) // Auto-scroll every 3 seconds
+                delay(4000) // A slightly longer delay for better UX
                 if (currentPage < categoryNames.size - 1) {
                     currentPage++
                 } else {
                     currentPage = 0
                 }
-                pagerState.animateScrollToPage(currentPage)
+                // Use smooth scrolling with custom animation
+                pagerState.animateScrollToPage(
+                    page = currentPage,
+                    animationSpec = tween(
+                        durationMillis = 800,
+                        easing = FastOutSlowInEasing
+                    )
+                )
             }
         }
     }
@@ -945,35 +1024,73 @@ fun SetoranSayaScreen(
                 // Sort categories
                 val sortedCategories = allCategories.toList().sorted()
                 
-                // Modern Card Pager View for horizontal scrolling with auto-animation
+                // Modern Card Pager View for horizontal scrolling with enhanced animations
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // HorizontalPager for modern card view
-                    HorizontalPager(
-                        state = pagerState,
-                        contentPadding = PaddingValues(horizontal = 32.dp),
+                    // HorizontalPager with enhanced card animations
+                    Box(
                         modifier = Modifier
                             .height(320.dp)
                             .fillMaxWidth()
-                    ) { page ->
-                        if (page < sortedCategories.size) {
-                            val categoryName = sortedCategories[page]
-                            val progress = categoryProgress[categoryName] ?: 0
-                            ModernKategoriCard(
-                                kategori = KategoriSetoran(
-                                    nama = categoryName,
-                                    progress = progress
-                                ),
-                                total = categoryItemCounts[categoryName] ?: 0,
-                                completed = categoryCompletedCounts[categoryName] ?: 0,
-                                onCardClick = {
-                                    autoScrollEnabled.value = false
-                                    navController.navigate("detailSetoran/$categoryName")
+                    ) {
+                        HorizontalPager(
+                            state = pagerState,
+                            contentPadding = PaddingValues(horizontal = 48.dp), // Increased padding for better visibility of adjacent cards
+                            pageSpacing = 16.dp, // Add space between pages
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            if (page < sortedCategories.size) {
+                                val categoryName = sortedCategories[page]
+                                val progress = categoryProgress[categoryName] ?: 0
+                                
+                                // Calculate card scale based on proximity to current page
+                                val pageOffset = ((pagerState.currentPage - page) + pagerState
+                                    .currentPageOffsetFraction).absoluteValue
+                                
+                                // Apply scaling effect - current page is full size, others are scaled down
+                                val scaleFactor = 0.85f + (1f - 0.85f) * (1f - pageOffset.coerceIn(0f, 1f))
+                                
+                                // Apply rotation effect for a more dynamic look
+                                val rotation = (pageOffset * 5f).coerceIn(-5f, 5f)
+                                
+                                // Apply alpha for fading effect
+                                val alpha = lerp(
+                                    start = 0.5f,
+                                    stop = 1f,
+                                    fraction = 1f - pageOffset.coerceIn(0f, 1f)
+                                )
+                                
+                                // Enhanced card with animations
+                                Box(
+                                    modifier = Modifier
+                                        .graphicsLayer {
+                                            this.scaleX = scaleFactor
+                                            this.scaleY = scaleFactor
+                                            this.rotationZ = -rotation // Subtle rotation
+                                            this.alpha = alpha
+                                            
+                                            // Add subtle 3D effect
+                                            this.cameraDistance = 8f * density
+                                        }
+                                        .fillMaxWidth()
+                                ) {
+                                    ModernKategoriCard(
+                                        kategori = KategoriSetoran(
+                                            nama = categoryName,
+                                            progress = progress
+                                        ),
+                                        total = categoryItemCounts[categoryName] ?: 0,
+                                        completed = categoryCompletedCounts[categoryName] ?: 0,
+                                        onCardClick = {
+                                            autoScrollEnabled.value = false
+                                            navController.navigate("detailSetoran/$categoryName")
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
                     }
                     
-                    // Page indicator dots
+                    // Animated page indicator dots with springy animations
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -982,24 +1099,49 @@ fun SetoranSayaScreen(
                     ) {
                         repeat(sortedCategories.size) { index ->
                             val isSelected = pagerState.currentPage == index
+                            
+                            // Animated size change for the selected dot
+                            val size by animateFloatAsState(
+                                targetValue = if (isSelected) 10f else 8f,
+                                animationSpec = animationSpec,
+                                label = "Dot size animation"
+                            )
+                            
+                            // Animated color change for the selected dot
+                            val color by animateColorAsState(
+                                targetValue = if (isSelected) tealPrimary else Color.LightGray,
+                                animationSpec = tween(300),
+                                label = "Dot color animation"
+                            )
+                            
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
-                                    .size(if (isSelected) 10.dp else 8.dp)
+                                    .size(size.dp)
                                     .background(
-                                        color = if (isSelected) tealPrimary else Color.LightGray,
+                                        color = color,
                                         shape = CircleShape
                                     )
                                     .clickable {
                                         currentPage = index
                                         autoScrollEnabled.value = false
+                                        // Animate to selected page with spring effect
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(
+                                                page = index,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessMedium
+                                                )
+                                            )
+                                        }
                                     }
                             )
                         }
                     }
                 }
                 
-                // Add setion title for recent progress
+                // Add section title for recent progress
                 Text(
                     text = "Kemajuan Terbaru",
                     style = MaterialTheme.typography.titleMedium.copy(
