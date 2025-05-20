@@ -143,19 +143,102 @@ fun DashboardScreen(navController: NavController) {
                             containerColor = Color.Transparent
                         ),
                         actions = {
-                            IconButton(
-                                onClick = {
-                                    loginViewModel.logout()
-                                    navController.navigate("login") {
-                                        popUpTo("dashboard") { inclusive = true }
+                            // Get profile photo URI from ViewModel
+                            val context = LocalContext.current
+                            val profilePhotoUri by dashboardViewModel.profilePhotoUri.collectAsState()
+                            var showMenu by remember { mutableStateOf(false) }
+                            
+                            // Load profile photo on initial composition if not already loaded
+                            LaunchedEffect(Unit) {
+                                if (profilePhotoUri == null) {
+                                    val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+                                    val savedPhotoPath = sharedPrefs.getString("profile_photo", null)
+                                    if (savedPhotoPath != null) {
+                                        val file = File(savedPhotoPath)
+                                        if (file.exists()) {
+                                            dashboardViewModel.updateProfilePhoto(Uri.fromFile(file))
+                                        }
                                     }
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ExitToApp,
-                                    contentDescription = "Logout",
-                                    tint = Color.White
-                                )
+                            }
+                            
+                            Box {
+                                // Profile Image Button
+                                IconButton(
+                                    onClick = { showMenu = true }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.2f))
+                                            .border(1.dp, Color.White, CircleShape)
+                                    ) {
+                                        if (profilePhotoUri != null) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(LocalContext.current)
+                                                    .data(profilePhotoUri)
+                                                    .crossfade(true)
+                                                    .build(),
+                                                contentDescription = "Profile Picture",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Rounded.AccountCircle,
+                                                contentDescription = "Profile",
+                                                tint = Color.White,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                // Dropdown Menu
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false },
+                                    modifier = Modifier
+                                        .background(Color.White)
+                                        .width(200.dp)
+                                ) {
+                                    // Profile option
+                                    DropdownMenuItem(
+                                        text = { Text("Profile") },
+                                        onClick = { 
+                                            showMenu = false
+                                            selectedTab = 2 // Switch to profile tab
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Person,
+                                                contentDescription = "Profile"
+                                            )
+                                        }
+                                    )
+                                    
+                                    // Divider
+                                    Divider()
+                                    
+                                    // Logout option
+                                    DropdownMenuItem(
+                                        text = { Text("Logout") },
+                                        onClick = { 
+                                            showMenu = false
+                                            loginViewModel.logout()
+                                            navController.navigate("login") {
+                                                popUpTo("dashboard") { inclusive = true }
+                                            }
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.ExitToApp,
+                                                contentDescription = "Logout"
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
                     )
@@ -539,6 +622,9 @@ fun ProfileContent(
     dashboardState: DashboardState,
     userName: String?
 ) {
+    // Get ViewModel
+    val dashboardViewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.getFactory(LocalContext.current))
+    
     // Definisi warna teal
     val tealPrimary = Color(0xFF008B8B)    // Hijau kebiruan (teal)
     val tealDark = Color(0xFF006666)       // Teal gelap
@@ -548,8 +634,8 @@ fun ProfileContent(
     // Get the context for file operations
     val context = LocalContext.current
     
-    // State for photo URI
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    // State for photo URI from ViewModel
+    val profilePhotoUri by dashboardViewModel.profilePhotoUri.collectAsState()
     
     // Function to save image to local storage
     fun saveImageToLocal(uri: Uri): Uri {
@@ -587,12 +673,14 @@ fun ProfileContent(
     
     // Load saved profile photo on initial composition
     LaunchedEffect(Unit) {
-        val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-        val savedPhotoPath = sharedPrefs.getString("profile_photo", null)
-        if (savedPhotoPath != null) {
-            val file = File(savedPhotoPath)
-            if (file.exists()) {
-                imageUri = Uri.fromFile(file)
+        if (profilePhotoUri == null) {
+            val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+            val savedPhotoPath = sharedPrefs.getString("profile_photo", null)
+            if (savedPhotoPath != null) {
+                val file = File(savedPhotoPath)
+                if (file.exists()) {
+                    dashboardViewModel.updateProfilePhoto(Uri.fromFile(file))
+                }
             }
         }
     }
@@ -604,7 +692,8 @@ fun ProfileContent(
         uri?.let {
             // Save selected image to local storage
             val savedUri = saveImageToLocal(it)
-            imageUri = savedUri
+            // Update the ViewModel with the new URI
+            dashboardViewModel.updateProfilePhoto(savedUri)
         }
     }
 
@@ -665,10 +754,10 @@ fun ProfileContent(
                                     .border(BorderStroke(3.dp, Color.White), CircleShape)
                                     .clickable { launcher.launch("image/*") }
                             ) {
-                                if (imageUri != null) {
+                                if (profilePhotoUri != null) {
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current)
-                                            .data(imageUri)
+                                            .data(profilePhotoUri)
                                             .crossfade(true)
                                             .build(),
                                         contentDescription = "Profile Picture",

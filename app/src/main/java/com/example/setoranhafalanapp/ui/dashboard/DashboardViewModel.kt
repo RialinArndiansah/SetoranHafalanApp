@@ -1,6 +1,7 @@
 package com.example.setoranhafalan.ui.dashboard
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -20,6 +21,8 @@ class DashboardViewModel(private val tokenManager: TokenManager) : ViewModel() {
     val dashboardState: StateFlow<DashboardState> = _dashboardState
     private val _userName = MutableStateFlow<String?>(null)
     val userName: StateFlow<String?> = _userName
+    private val _profilePhotoUri = MutableStateFlow<Uri?>(null)
+    val profilePhotoUri: StateFlow<Uri?> = _profilePhotoUri
     private val TAG = "DashboardViewModel"
 
     init {
@@ -157,6 +160,10 @@ class DashboardViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 _dashboardState.value = DashboardState.Error("Gagal mengambil data: $message (Kode: $code, Body: $errorBody)")
             }
         }
+    }
+
+    fun updateProfilePhoto(uri: Uri?) {
+        _profilePhotoUri.value = uri
     }
 
     companion object {
