@@ -600,18 +600,6 @@ fun SetoranCard(
                         }
                     }
                 }
-
-                // Ikon More (titik tiga)
-                IconButton(
-                    onClick = { },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = "More",
-                        tint = Color.Gray
-                    )
-                }
             }
         }
     }
