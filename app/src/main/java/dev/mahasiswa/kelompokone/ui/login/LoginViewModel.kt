@@ -115,6 +115,8 @@ class LoginViewModel(
 
     fun logout() {
         tokenManager.clearTokens()
+        secureCredentialManager.clearCredentials()
+        _biometricState.value = BiometricState.Unavailable
         _loginState.value = LoginState.Idle
     }
 

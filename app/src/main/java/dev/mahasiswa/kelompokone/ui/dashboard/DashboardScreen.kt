@@ -158,6 +158,9 @@ fun DashboardScreen(navController: NavController) {
         dashboardViewModel.fetchSetoranSaya()
     }
     
+    // Untuk dialog konfirmasi logout
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    
     // Function to handle logout and reset profile photo
     val handleLogout = {
         // Clear profile photo from SharedPreferences and ViewModel
@@ -179,6 +182,37 @@ fun DashboardScreen(navController: NavController) {
         }
     }
 
+    // Dialog konfirmasi logout
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Konfirmasi Logout") },
+            text = { Text("Apakah Anda yakin ingin keluar dari aplikasi?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        handleLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) {
+                    Text("Ya, Keluar", color = Color.White)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showLogoutDialog = false },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = tealPrimary
+                    ),
+                    border = BorderStroke(1.dp, tealPrimary)
+                ) {
+                    Text("Batal", color = tealPrimary)
+                }
+            }
+        )
+    }
+    
     Scaffold(
         topBar = {
             Surface(
@@ -289,7 +323,7 @@ fun DashboardScreen(navController: NavController) {
                                         text = { Text("Logout") },
                                         onClick = { 
                                             showMenu = false
-                                            handleLogout()
+                                            showLogoutDialog = true
                                         },
                                         leadingIcon = {
                                             Icon(
