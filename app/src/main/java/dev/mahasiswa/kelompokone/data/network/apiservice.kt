@@ -1,6 +1,6 @@
 package dev.mahasiswa.kelompokone.data.network
-import com.example.setoranhafalan.data.model.AuthResponse
-import com.example.setoranhafalan.data.model.SetoranResponse
+import dev.mahasiswa.kelompokone.data.model.AuthResponse
+import dev.mahasiswa.kelompokone.data.model.SetoranResponse
 import retrofit2.Response
 import retrofit2.http.*
 

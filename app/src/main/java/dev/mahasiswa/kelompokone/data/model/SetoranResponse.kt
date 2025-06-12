@@ -1,4 +1,4 @@
-package com.example.setoranhafalan.data.model
+package dev.mahasiswa.kelompokone.data.model
 
 data class SetoranResponse(
     val response: Boolean,

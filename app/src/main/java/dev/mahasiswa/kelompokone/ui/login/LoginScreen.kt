@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import dev.mahasiswa.kelompokone.R
 import kotlinx.coroutines.launch
+import dev.mahasiswa.kelompokone.ui.navigation.Screen
 
 @Composable
 fun LoginScreen(
@@ -196,8 +197,8 @@ fun LoginScreen(
                     }
                     is LoginState.Success -> {
                         LaunchedEffect(Unit) {
-                            navController.navigate("dashboard") {
-                                popUpTo("login") { inclusive = true }
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.Login.route) { inclusive = true }
                             }
                         }
                     }

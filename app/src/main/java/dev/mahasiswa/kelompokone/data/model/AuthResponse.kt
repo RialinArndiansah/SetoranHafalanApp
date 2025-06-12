@@ -1,4 +1,4 @@
-package com.example.setoranhafalan.data.model
+package dev.mahasiswa.kelompokone.data.model
 
 data class AuthResponse(
     val access_token: String,

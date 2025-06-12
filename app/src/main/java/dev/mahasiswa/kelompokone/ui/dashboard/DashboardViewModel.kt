@@ -1,4 +1,4 @@
-package com.example.setoranhafalan.ui.dashboard
+package dev.mahasiswa.kelompokone.ui.dashboard
 
 import android.content.Context
 import android.net.Uri
@@ -7,8 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.auth0.jwt.JWT
-import com.example.setoranhafalan.data.model.SetoranResponse
-import com.example.setoranhafalan.data.network.RetrofitClient
+import dev.mahasiswa.kelompokone.data.model.SetoranResponse
+import dev.mahasiswa.kelompokone.data.network.RetrofitClient
 import dev.mahasiswa.kelompokone.data.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

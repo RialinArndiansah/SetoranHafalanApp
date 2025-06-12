@@ -1,4 +1,4 @@
-package com.example.setoranhafalan.ui.dashboard
+package dev.mahasiswa.kelompokone.ui.dashboard
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -109,7 +109,8 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import com.example.setoranhafalan.data.model.InfoSetoran
+import dev.mahasiswa.kelompokone.data.model.InfoSetoran
+import dev.mahasiswa.kelompokone.ui.navigation.Screen
 
 // Helper function to format date in Indonesian format
 private fun formatDateIndonesian(dateString: String?): String {
@@ -177,8 +178,8 @@ fun DashboardScreen(navController: NavController) {
         loginViewModel.logout()
         
         // Navigate to login screen
-        navController.navigate("login") {
-            popUpTo("dashboard") { inclusive = true }
+        navController.navigate(Screen.Login.route) {
+            popUpTo(Screen.Dashboard.route) { inclusive = true }
         }
     }
 
