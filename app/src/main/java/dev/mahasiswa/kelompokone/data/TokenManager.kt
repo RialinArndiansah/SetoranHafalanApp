@@ -9,8 +9,8 @@ class TokenManager(context: Context) {
 
     fun saveTokens(accessToken: String, refreshToken: String, idToken: String) {
         val currentTime = System.currentTimeMillis()
-        val accessTokenExpiry = currentTime + (10 * 1000) // 2 minutes
-        val refreshTokenExpiry = currentTime + (10 * 1000) // 1 minute
+        val accessTokenExpiry = currentTime + (4 * 60 * 1000) // 2 minutes
+        val refreshTokenExpiry = currentTime + (3 * 60 * 1000) // 1 minute
         
         prefs.edit {
             putString("access_token", accessToken)
