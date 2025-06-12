@@ -595,7 +595,7 @@ fun SetoranContent(
                         )
                         
                         Text(
-                                text = "Jangan berhenti! Setiap ayat yang kau hafal adalah tangga menuju kemuliaan. 📖",
+                                text = "Jangan berhenti! Setiap ayat yang kamu hafal adalah tangga menuju kemuliaan. 📖",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Normal,
                                 color = Color.Black.copy(alpha = 0.8f)
