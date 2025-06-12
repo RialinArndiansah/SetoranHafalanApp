@@ -1,7 +1,7 @@
 # 📱 Setoran Hafalan App
 
 <p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Setoran Hafalan App Logo" width="150"/>
+  <img src="app/src/main/res/drawable/iconn.png" alt="Setoran Hafalan App Logo" width="150"/>
 </p>
 
 <p align="center">
@@ -58,9 +58,9 @@ Setoran Hafalan App adalah aplikasi Android modern yang dirancang untuk membantu
 
 <p align="center">
   <!-- Add your app screenshots here -->
-  <img src="screenshots/screenshot1.png" width="200" alt="Dashboard"/>
-  <img src="screenshots/screenshot2.png" width="200" alt="Progress Tracking"/>
-  <img src="screenshots/screenshot3.png" width="200" alt="Profile Management"/>
+  <img src="app/src/main/res/drawable/dashboard_rdme.jpg" width="200" alt="Dashboard"/>
+  <img src="app/src/main/res/drawable/profil_rdme.jpg" width="200" alt="Progress Tracking"/>
+  <img src="app/src/main/res/drawable/setoransaya_rdme.jpg" width="200" alt="Profile Management"/>
 </p>
 
 ## ⚙️ Installation | Instalasi
