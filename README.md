@@ -51,9 +51,7 @@ Setoran Hafalan App adalah aplikasi Android modern yang dirancang untuk membantu
 - MVVM Architecture
 - Coroutines for Asynchronous Operations
 - Room Database for Local Storage
-- Firebase Integration
 - Navigation Component
-- ViewBinding
 - LiveData & Flow
 
 ## 📱 Screenshots | Tangkapan Layar
@@ -88,7 +86,7 @@ git clone https://github.com/RialinArndiansah/SetoranHafalanApp.git
 ## 🛠️ Requirements | Persyaratan
 
 - Android Studio Flamingo or newer
-- Minimum SDK Version 21 (Android 5.0)
+- Minimum SDK Version 21 (Android 13.0)
 - Kotlin version 1.8.0 or newer
 - Google Play Services
 - Firebase Account (optional)
@@ -130,10 +128,10 @@ SOFTWARE.
 ## 📞 Contact | Kontak
 
 [English]  
-If you have any questions, suggestions, or would like to report issues, feel free to contact me:
+If you have any questions, suggestions, or would like to report issues, feel free to contact me
 
 [Indonesia]  
-Jika Anda memiliki pertanyaan, saran, atau ingin melaporkan masalah, silakan hubungi saya:
+Jika Anda memiliki pertanyaan, saran, atau ingin melaporkan masalah, silakan hubungi saya
 
 
 <p align="center">
