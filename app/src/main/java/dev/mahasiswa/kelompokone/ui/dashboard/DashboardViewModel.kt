@@ -9,7 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.auth0.jwt.JWT
 import com.example.setoranhafalan.data.model.SetoranResponse
 import com.example.setoranhafalan.data.network.RetrofitClient
-import com.example.setoranhafalanapp.data.TokenManager
+import dev.mahasiswa.kelompokone.data.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

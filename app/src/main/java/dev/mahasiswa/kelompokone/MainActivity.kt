@@ -1,11 +1,11 @@
-package com.example.setoranhafalanapp
+package dev.mahasiswa.kelompokone
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.navigation.compose.rememberNavController
-import com.example.setoranhafalanapp.ui.navigation.SetupNavGraph
-import com.example.setoranhafalanapp.ui.theme.SetoranHafalanTheme
+import dev.mahasiswa.kelompokone.ui.navigation.SetupNavGraph
+import dev.mahasiswa.kelompokone.ui.theme.SetoranHafalanTheme
 
 
 class MainActivity : ComponentActivity() {

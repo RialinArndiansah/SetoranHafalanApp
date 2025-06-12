@@ -1,4 +1,4 @@
-package com.example.setoranhafalanapp.ui.theme
+package dev.mahasiswa.kelompokone.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

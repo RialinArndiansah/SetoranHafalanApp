@@ -1,4 +1,4 @@
-package com.example.setoranhafalanapp.data.network
+package dev.mahasiswa.kelompokone.data.network
 import com.example.setoranhafalan.data.model.AuthResponse
 import com.example.setoranhafalan.data.model.SetoranResponse
 import retrofit2.Response

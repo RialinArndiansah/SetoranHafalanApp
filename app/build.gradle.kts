@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.setoranhafalanapp"
+    namespace = "dev.mahasiswa.kelompokone"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.setoranhafalanapp"
+        applicationId = "dev.mahasiswa.kelompokone"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

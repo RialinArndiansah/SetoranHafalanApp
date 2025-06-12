@@ -1,4 +1,4 @@
-package com.example.setoranhafalanapp
+package dev.mahasiswa.kelompokone
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

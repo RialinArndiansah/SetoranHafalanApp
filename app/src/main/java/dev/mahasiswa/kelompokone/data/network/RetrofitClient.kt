@@ -1,6 +1,6 @@
 package com.example.setoranhafalan.data.network
 
-import com.example.setoranhafalanapp.data.network.ApiService
+import dev.mahasiswa.kelompokone.data.network.ApiService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit

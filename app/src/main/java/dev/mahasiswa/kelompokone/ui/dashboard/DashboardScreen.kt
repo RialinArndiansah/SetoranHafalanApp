@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,8 +43,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
-import com.example.setoranhafalanapp.R
-import com.example.setoranhafalanapp.ui.login.LoginViewModel
+import dev.mahasiswa.kelompokone.R
+import dev.mahasiswa.kelompokone.ui.login.LoginViewModel
 import kotlinx.coroutines.launch
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -85,6 +84,49 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import android.content.Intent
+import android.graphics.pdf.PdfDocument
+import android.graphics.Typeface
+import android.graphics.Paint
+import android.graphics.Canvas
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.compose.material.icons.filled.PictureAsPdf
+import android.os.Environment
+import android.widget.Toast
+import androidx.core.content.FileProvider
+
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import com.example.setoranhafalan.data.model.InfoSetoran
+
+// Helper function to format date in Indonesian format
+private fun formatDateIndonesian(dateString: String?): String {
+    if (dateString.isNullOrEmpty()) return "-"
+    
+    try {
+        // Parse the input date (assuming it's in format like "2023-05-17")
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val date = inputFormat.parse(dateString) ?: return dateString
+        
+        // Format to Indonesian date format
+        val outputFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+        return outputFormat.format(date)
+    } catch (e: Exception) {
+        return dateString
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
@@ -114,6 +156,27 @@ fun DashboardScreen(navController: NavController) {
 
     LaunchedEffect(Unit) {
         dashboardViewModel.fetchSetoranSaya()
+    }
+    
+    // Function to handle logout and reset profile photo
+    val handleLogout = {
+        // Clear profile photo from SharedPreferences and ViewModel
+        val sharedPrefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+        with(sharedPrefs.edit()) {
+            remove("profile_photo")
+            apply()
+        }
+        
+        // Reset profile photo in ViewModel
+        dashboardViewModel.updateProfilePhoto(null)
+        
+        // Perform logout
+        loginViewModel.logout()
+        
+        // Navigate to login screen
+        navController.navigate("login") {
+            popUpTo("dashboard") { inclusive = true }
+        }
     }
 
     Scaffold(
@@ -226,10 +289,7 @@ fun DashboardScreen(navController: NavController) {
                                         text = { Text("Logout") },
                                         onClick = { 
                                             showMenu = false
-                                            loginViewModel.logout()
-                                            navController.navigate("login") {
-                                                popUpTo("dashboard") { inclusive = true }
-                                            }
+                                            handleLogout()
                                         },
                                         leadingIcon = {
                                             Icon(
@@ -399,10 +459,41 @@ fun SetoranContent(
     val tealPrimary = Color(0xFF008B8B)    // Hijau kebiruan (teal)
     val tealLight = Color(0xFF00AEAE)      // Teal cerah
     val tealPastel = Color(0xFFE0F7FA)     // Teal sangat muda
+    val tealDark = Color(0xFF006666)       // Teal gelap
 
-    Column(
+    // Get ViewModel for refreshing data
+    val context = LocalContext.current
+    val dashboardViewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.getFactory(context))
+    
+    // Pull to refresh state
+    var refreshing by remember { mutableStateOf(false) }
+    
+    // Filter state - default to SUDAH
+    var selectedFilter by remember { mutableStateOf("SUDAH") }
+    
+    // Handle refresh action
+    val onRefresh = {
+        refreshing = true
+        dashboardViewModel.fetchSetoranSaya()
+    }
+    
+    // Reset refreshing state when data is loaded
+    LaunchedEffect(dashboardState) {
+        if (dashboardState !is DashboardState.Loading) {
+            refreshing = false
+        }
+    }
+    
+    // Create pull refresh state
+    @OptIn(ExperimentalMaterialApi::class)
+    val pullRefreshState = rememberPullRefreshState(refreshing, onRefresh)
+
+    // Main content with pull to refresh
+    @OptIn(ExperimentalMaterialApi::class)
+    Box(
         modifier = Modifier
             .fillMaxSize()
+            .pullRefresh(pullRefreshState)
             .padding(horizontal = 16.dp)
     ) {
         when (val state = dashboardState) {
@@ -417,15 +508,82 @@ fun SetoranContent(
 
             is DashboardState.Success -> {
                 val data = state.data.data
+                
+                // Using a scrollable column that can overlay elements
+                val scrollState = rememberScrollState()
+                val scrollOffset by remember { derivedStateOf { scrollState.value } }
+                val maxQuoteCardHeight = 180.dp  // Approximate height of the quote card
+                val maxProgressHeight = 150.dp   // Approximate height of the progress circle
+                
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Inspirational quote section - will be hidden when scrolling down
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                            .graphicsLayer {
+                                // Animate the card out of view when scrolling
+                                alpha = (1 - (scrollOffset / 300f)).coerceIn(0f, 1f)
+                                translationY = -scrollOffset.toFloat() / 2
+                            },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = tealPastel
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 2.dp
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Ini dia riwayat hafalanmu!",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = tealPrimary
+                            ),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        Text(
+                            text = "Dan sungguh, telah Kami mudahkan Al-Qur'an untuk diingat… (QS. Al-Qamar: 17)",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = tealDark
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        Text(
+                                text = "Jangan berhenti! Setiap ayat yang kau hafal adalah tangga menuju kemuliaan. 📖",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Normal,
+                                color = Color.Black.copy(alpha = 0.8f)
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
 
-                // Progress Circle
+                    // Progress Circle - smaller size and will be hidden when scrolling down
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
+                            .padding(vertical = 16.dp)
+                            .padding(top = maxQuoteCardHeight)
+                            .graphicsLayer {
+                                // Animate the progress circle out of view when scrolling
+                                alpha = (1 - (scrollOffset / 300f)).coerceIn(0f, 1f)
+                                translationY = -scrollOffset.toFloat() / 2
+                            },
                     contentAlignment = Alignment.Center
                 ) {
-                    Canvas(modifier = Modifier.size(200.dp)) {
+                        Canvas(modifier = Modifier.size(150.dp)) {
                         drawCircle(
                             color = tealPastel,
                             radius = size.minDimension / 2 - 8.dp.toPx(),
@@ -438,26 +596,39 @@ fun SetoranContent(
                     ) {
                         Text(
                             text = "${data.setoran.info_dasar.persentase_progres_setor}%",
-                            style = MaterialTheme.typography.headlineMedium.copy(
+                                style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = tealPrimary
                             )
                         )
                         Text(
                             text = "Progress",
-                            style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                 color = tealPrimary
                             )
                         )
                         Text(
                             text = "Setoran",
-                            style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                 color = tealPrimary
                             )
                         )
                     }
                 }
 
+                    // Scrollable content that will overlay the quote and progress sections when scrolled
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .padding(top = maxQuoteCardHeight.plus(maxProgressHeight))
+                    ) {
+                        // Daftar Setoran header with filter
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
                 // Daftar Setoran title
                 Text(
                     text = "Daftar Setoran:",
@@ -468,18 +639,154 @@ fun SetoranContent(
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
 
-                // List of Setoran
-                LazyColumn(
+                            // Filter chips in a row with better spacing
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                // Sudah filter chip
+                                FilterChip(
+                                    selected = selectedFilter == "SUDAH",
+                                    onClick = { selectedFilter = "SUDAH" },
+                                    label = { 
+                                        Text(
+                                            "Sudah Setor",
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) 
+                                    },
+                                    enabled = true,
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .height(36.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = tealPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        borderColor = tealPrimary.copy(alpha = 0.5f),
+                                        enabled = true,
+                                        selected = selectedFilter == "SUDAH"
+                                    ),
+                                    leadingIcon = if (selectedFilter == "SUDAH") {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color.White
+                                            )
+                                        }
+                                    } else null
+                                )
+                                
+                                // Belum filter chip
+                                FilterChip(
+                                    selected = selectedFilter == "BELUM",
+                                    onClick = { selectedFilter = "BELUM" },
+                                    label = { 
+                                        Text(
+                                            "Belum Setor",
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) 
+                                    },
+                                    enabled = true,
+                                    modifier = Modifier.height(36.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = tealPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        borderColor = tealPrimary.copy(alpha = 0.5f),
+                                        enabled = true,
+                                        selected = selectedFilter == "BELUM"
+                                    ),
+                                    leadingIcon = if (selectedFilter == "BELUM") {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Rounded.RadioButtonUnchecked,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color.White
+                                            )
+                                        }
+                                    } else null
+                                )
+                            }
+                        }
+
+                        // Apply filter to list
+                        val filteredList = when (selectedFilter) {
+                            "SUDAH" -> data.setoran.detail.filter { it.sudah_setor }
+                            "BELUM" -> data.setoran.detail.filter { !it.sudah_setor }
+                            else -> data.setoran.detail
+                        }
+
+                        // List of Setoran with filter applied
+                        Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(data.setoran.detail) { item ->
+                            if (filteredList.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (selectedFilter == "SUDAH") 
+                                                Icons.Rounded.CheckCircle 
+                                            else 
+                                                Icons.Rounded.RadioButtonUnchecked,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(48.dp),
+                                            tint = if (selectedFilter == "SUDAH") 
+                                                tealPrimary.copy(alpha = 0.6f) 
+                                            else 
+                                                Color.Gray.copy(alpha = 0.6f)
+                                        )
+                                        
+                                        Text(
+                                            text = if (selectedFilter == "SUDAH")
+                                                "Belum ada setoran yang divalidasi"
+                                            else
+                                                "Belum ada setoran nih, yuk semangat!",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color.Gray,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                        
+                                        if (selectedFilter == "BELUM") {
+                                            Text(
+                                                text = "Ayo segera selesaikan hafalan Anda 📖",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = tealPrimary,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                filteredList.forEach { item ->
                         SetoranCard(
                             nama = item.nama,
                             label = item.label,
                             sudahSetor = item.sudah_setor,
+                                        infoSetoran = item.info_setoran,
                             tealColor = tealPrimary,
                             tealPastelColor = tealPastel
                         )
+                                }
+                            }
+                            
+                            // Add some padding at the bottom for better scrolling experience
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 }
             }
@@ -494,6 +801,16 @@ fun SetoranContent(
 
             else -> {}
         }
+        
+        // Pull to refresh indicator at the top
+        @OptIn(ExperimentalMaterialApi::class)
+        PullRefreshIndicator(
+            refreshing = refreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            backgroundColor = Color.White,
+            contentColor = tealPrimary
+        )
     }
 }
 
@@ -502,9 +819,14 @@ fun SetoranCard(
     nama: String,
     label: String,
     sudahSetor: Boolean,
+    infoSetoran: InfoSetoran? = null,
     tealColor: Color,
     tealPastelColor: Color
 ) {
+    // State for showing validation details dialog
+    var showDetails by remember { mutableStateOf(false) }
+    var showDropdownMenu by remember { mutableStateOf(false) }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -599,9 +921,102 @@ fun SetoranCard(
                             )
                         }
                     }
+                    
+                    // Show tanggal setor if sudah setor and info_setoran exists
+                    if (sudahSetor && infoSetoran != null) {
+                        Text(
+                            text = "Tanggal: ${formatDateIndonesian(infoSetoran.tgl_setoran)}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color.DarkGray
+                            )
+                        )
+            }
+        }
+                
+                // 3-dot menu
+                Box {
+                    IconButton(
+                        onClick = { showDropdownMenu = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = "Menu",
+                            tint = if (sudahSetor) tealColor else Color.Gray
+                        )
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showDropdownMenu,
+                        onDismissRequest = { showDropdownMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Lihat Detail Validasi") },
+                            onClick = { 
+                                showDropdownMenu = false
+                                showDetails = true
+                            },
+                            enabled = sudahSetor && infoSetoran != null
+                        )
+                    }
                 }
             }
         }
+    }
+    
+    // Dialog to show validation details
+    if (showDetails && infoSetoran != null) {
+        AlertDialog(
+            onDismissRequest = { showDetails = false },
+            title = { Text("Detail Validasi") },
+            text = {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Surat: $nama",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    
+                    Text(
+                        text = "Tanggal Setoran: ${formatDateIndonesian(infoSetoran.tgl_setoran)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Text(
+                        text = "Tanggal Validasi: ${formatDateIndonesian(infoSetoran.tgl_validasi)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Text(
+                        text = "Divalidasi oleh: ${infoSetoran.dosen_yang_mengesahkan.nama}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Text(
+                        text = "NIP: ${infoSetoran.dosen_yang_mengesahkan.nip}",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.Gray
+                        )
+                    )
+                    
+                    Text(
+                        text = "Email: ${infoSetoran.dosen_yang_mengesahkan.email}",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.Gray
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetails = false }) {
+                    Text("Tutup")
+                }
+            }
+        )
     }
 }
 
@@ -624,6 +1039,421 @@ fun ProfileContent(
     
     // State for photo URI from ViewModel
     val profilePhotoUri by dashboardViewModel.profilePhotoUri.collectAsState()
+    
+    // Update the export function with all the requested improvements
+    val exportToPdf = { studentData: DashboardState.Success ->
+        try {
+            Toast.makeText(context, "Membuat PDF Kartu Muroja'ah...", Toast.LENGTH_SHORT).show()
+            
+            // Get the data
+            val data = studentData.data.data
+            
+            // Create a PDF document - with LARGER page size to ensure everything fits
+            val pdfDocument = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(595, 920, 1).create() // Further increased height
+            val page = pdfDocument.startPage(pageInfo)
+            
+            val canvas = page.canvas
+            
+            // Load the UIN logo from drawable resources
+            val logo = BitmapFactory.decodeResource(context.resources, R.drawable.logo_uin)
+            
+            // Create a smaller version of the logo for the header
+            val scaledLogo = Bitmap.createScaledBitmap(logo, 70, 70, true)
+            
+            // Very small text paint for table contents to fit all entries
+            val smallPaint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                textSize = 8f // Very small font size
+            }
+            
+            // Regular text paint with smaller font size for better fit
+            val paint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                textSize = 9f
+            }
+            
+            // Title paint
+            val titlePaint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                textSize = 16f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            
+            // Subtitle paint
+            val subtitlePaint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                textSize = 12f
+                textAlign = Paint.Align.CENTER
+            }
+            
+            // Bold paint for headers
+            val boldPaint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                textSize = 10f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            
+            // Header text paint (white color for contrast against background)
+            val headerTextPaint = Paint().apply {
+                color = android.graphics.Color.WHITE
+                textSize = 10f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            
+            // Centered text paint for prasyarat
+            val centeredPaint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                textSize = 8f
+                textAlign = Paint.Align.CENTER
+            }
+            
+            // Table header background color (UIN teal/green color)
+            val headerBgPaint = Paint().apply {
+                color = android.graphics.Color.rgb(0, 139, 139) // Teal color
+                style = Paint.Style.FILL
+            }
+            
+            // Thin line paint for table grid
+            val thinLinePaint = Paint().apply {
+                color = android.graphics.Color.argb(120, 128, 128, 128) // Semi-transparent gray
+                style = Paint.Style.STROKE
+                strokeWidth = 0.5f // Thinner lines
+            }
+            
+            // Draw the logo on the left side of the header
+            canvas.drawBitmap(scaledLogo, 60f, 30f, paint)
+            
+            // Draw header/title text (now centered but adjusted for logo)
+            val centerX = pageInfo.pageWidth / 2f + 30f // Shifted slightly to account for logo
+            canvas.drawText("KARTU MUROJA'AH JUZ 30", centerX, 50f, titlePaint)
+            canvas.drawText("Program Studi Teknik Informatika", centerX, 70f, subtitlePaint)
+            canvas.drawText("Fakultas Sains dan Teknologi", centerX, 90f, subtitlePaint)
+            canvas.drawText("Universitas Islam Negeri Sultan Syarif Kasim Riau", centerX, 110f, subtitlePaint)
+            
+            // Draw divider line below header
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1f
+            canvas.drawLine(50f, 125f, 545f, 125f, paint)
+            paint.style = Paint.Style.FILL
+            
+            // Draw student information with improved layout - aligned colons
+            val studentInfoY = 150f
+            val labelX = 50f
+            val colonX = 170f  // Fixed position for all colons to align
+            val valueX = colonX + 10f  // Value starts after colon with some padding
+            
+            // Nama
+            canvas.drawText("Nama", labelX, studentInfoY, boldPaint)
+            canvas.drawText(":", colonX, studentInfoY, boldPaint)
+            canvas.drawText(data.info.nama, valueX, studentInfoY, boldPaint)
+            
+            // NIM
+            canvas.drawText("NIM", labelX, studentInfoY + 20, boldPaint)
+            canvas.drawText(":", colonX, studentInfoY + 20, boldPaint)
+            canvas.drawText(data.info.nim, valueX, studentInfoY + 20, boldPaint)
+            
+            // Penasehat Akademik
+            canvas.drawText("Penasehat Akademik", labelX, studentInfoY + 40, boldPaint)
+            canvas.drawText(":", colonX, studentInfoY + 40, boldPaint)
+            canvas.drawText(data.info.dosen_pa.nama, valueX, studentInfoY + 40, boldPaint)
+            
+            // Draw divider line between student info and table
+            canvas.drawLine(50f, studentInfoY + 60, 545f, studentInfoY + 60, thinLinePaint)
+            
+            // Make table slightly smaller to ensure signatures fit
+            val tableStartY = 220f
+            val rowHeight = 14f // Further reduced row height
+            val tableWidth = 495f
+            
+            // Column widths - Increased width for Dosen yang Mengesahkan
+            val col1Width = 20f   // No - Smaller
+            val col2Width = 160f  // Surah name - slightly reduced
+            val col3Width = 95f   // Tanggal Muroja'ah - slightly reduced
+            val col4Width = 70f   // Prasyarat - slightly reduced
+            val col5Width = 150f  // Dosen yang Mengesahkan - Increased width
+            
+            // Map of category codes to full names
+            val categoryFullNames = mapOf(
+                "KP" to "Kerja Praktik",
+                "SEMKP" to "Seminar KP",
+                "DAFTAR_TA" to "Daftar TA",
+                "SEMPRO" to "Seminar Proposal",
+                "SIDANG_TA" to "Sidang TA"
+            )
+            
+            // Define specific surah ranges for each category (these are the actual row numbers, not surah numbers)
+            val categoryRanges = mapOf(
+                "KP" to 0..6,             // Surah 1-7
+                "SEMKP" to 9..15,         // Surah 10-16
+                "DAFTAR_TA" to 17..21,    // Surah 18-22
+                "SEMPRO" to 23..33,       // Surah 24-34
+                "SIDANG_TA" to 35..35     // Surah 36
+            )
+            
+            // Define specific rows where horizontal lines should be drawn in the prasyarat column
+            // These correspond to the requested surahs: Al Buruj (8), Ad Duha (16), Al Zalzalah (22), Al Lahab (34)
+            val specialDividerRows = setOf(7, 15, 21, 33) // Zero-indexed (row 8 = index 7, etc.)
+            
+            // Calculate midpoints for centered text in each category range
+            val categoryMidpoints = categoryRanges.mapValues { (_, range) ->
+                val midRow = (range.first + range.last) / 2
+                tableStartY + (midRow + 1) * rowHeight + (rowHeight / 2)
+            }
+            
+            // Draw colored header background
+            canvas.drawRect(50f, tableStartY, 50f + tableWidth, tableStartY + rowHeight, headerBgPaint)
+            
+            // Draw table outline with thinner lines
+            canvas.drawRect(50f, tableStartY, 50f + tableWidth, tableStartY + rowHeight, thinLinePaint)
+            
+            // Draw column dividers for header with thinner lines
+            canvas.drawLine(50f + col1Width, tableStartY, 50f + col1Width, tableStartY + rowHeight, thinLinePaint)
+            canvas.drawLine(50f + col1Width + col2Width, tableStartY, 50f + col1Width + col2Width, tableStartY + rowHeight, thinLinePaint)
+            canvas.drawLine(50f + col1Width + col2Width + col3Width, tableStartY, 50f + col1Width + col2Width + col3Width, tableStartY + rowHeight, thinLinePaint)
+            canvas.drawLine(50f + col1Width + col2Width + col3Width + col4Width, tableStartY, 50f + col1Width + col2Width + col3Width + col4Width, tableStartY + rowHeight, thinLinePaint)
+            
+            // Draw table header text with white text for contrast against colored background
+            canvas.drawText("No", 55f, tableStartY + (rowHeight * 0.7f), headerTextPaint)
+            canvas.drawText("Surah", 55f + col1Width + 5f, tableStartY + (rowHeight * 0.7f), headerTextPaint)
+            canvas.drawText("Tanggal Muroja'ah", 55f + col1Width + col2Width + 5f, tableStartY + (rowHeight * 0.7f), headerTextPaint)
+            canvas.drawText("Prasyarat", 55f + col1Width + col2Width + col3Width + 5f, tableStartY + (rowHeight * 0.7f), headerTextPaint)
+            canvas.drawText("Dosen yang Mengesahkan", 55f + col1Width + col2Width + col3Width + col4Width + 5f, tableStartY + (rowHeight * 0.7f), headerTextPaint)
+            
+            // Function to wrap text if it exceeds maxWidth - compact version for small rows
+            fun drawWrappedText(text: String, x: Float, y: Float, maxWidth: Float, linePaint: Paint) {
+                if (linePaint.measureText(text) <= maxWidth) {
+                    canvas.drawText(text, x, y, linePaint)
+                    return
+                }
+                
+                // Calculate how many characters can fit in maxWidth
+                val chars = text.toCharArray()
+                var index = 0
+                while (index < chars.size) {
+                    var end = index + 1
+                    while (end <= chars.size && linePaint.measureText(text.substring(index, end)) <= maxWidth) {
+                        end++
+                    }
+                    // Back up one character since we exceeded the width
+                    end--
+                    
+                    // Draw the substring that fits
+                    canvas.drawText(text.substring(index, end), x, y, linePaint)
+                    
+                    // No second line in this compact version - just use ellipsis
+                    if (end < chars.size) {
+                        val truncated = text.substring(index, end-3) + "..."
+                        canvas.drawText(truncated, x, y, linePaint)
+                    }
+                    break
+                }
+            }
+            
+            // Extract setoran items
+            val setoranItems = data.setoran.detail
+            
+            // Draw vertical dividers for the entire prasyarat column with thinner lines
+            canvas.drawLine(50f + col1Width + col2Width + col3Width, tableStartY + rowHeight, 
+                             50f + col1Width + col2Width + col3Width, tableStartY + 38 * rowHeight, thinLinePaint)
+            canvas.drawLine(50f + col1Width + col2Width + col3Width + col4Width, tableStartY + rowHeight, 
+                             50f + col1Width + col2Width + col3Width + col4Width, tableStartY + 38 * rowHeight, thinLinePaint)
+            
+            // Draw centered category names in prasyarat column at the midpoint of each range
+            for ((category, midY) in categoryMidpoints) {
+                val fullCategoryName = categoryFullNames[category] ?: category
+                // Use centered paint to draw in the middle of the prasyarat column
+                val centerX = 50f + col1Width + col2Width + col3Width + (col4Width / 2)
+                canvas.drawText(fullCategoryName, centerX, midY, centeredPaint)
+            }
+            
+            // Draw all 37 rows with compact layout - but skip horizontal lines in prasyarat column (except for special rows)
+            for (i in 0 until 37) {
+                val rowY = tableStartY + (i + 1) * rowHeight
+                
+                // Draw row outline - but skip specific areas in prasyarat column
+                
+                // Draw main horizontal line for this row with thinner lines
+                canvas.drawLine(50f, rowY, 50f + col1Width + col2Width + col3Width, rowY, thinLinePaint) // Left side
+                canvas.drawLine(50f + col1Width + col2Width + col3Width + col4Width, rowY, 
+                                 50f + tableWidth, rowY, thinLinePaint) // Right side
+                
+                // Draw special horizontal dividers in the prasyarat column for the specified rows with thinner lines
+                if (i in specialDividerRows) {
+                    // Draw a horizontal line specifically in the prasyarat column
+                    canvas.drawLine(
+                        50f + col1Width + col2Width + col3Width, rowY,
+                        50f + col1Width + col2Width + col3Width + col4Width, rowY,
+                        thinLinePaint
+                    )
+                }
+                
+                // Vertical dividers - only for the non-prasyarat columns with thinner lines
+                canvas.drawLine(50f, rowY, 50f, rowY + rowHeight, thinLinePaint) // Left edge
+                canvas.drawLine(50f + col1Width, rowY, 50f + col1Width, rowY + rowHeight, thinLinePaint)
+                canvas.drawLine(50f + col1Width + col2Width, rowY, 50f + col1Width + col2Width, rowY + rowHeight, thinLinePaint)
+                canvas.drawLine(50f + tableWidth, rowY, 50f + tableWidth, rowY + rowHeight, thinLinePaint) // Right edge
+                
+                // Draw row content with smaller text
+                canvas.drawText("${i + 1}", 53f, rowY + (rowHeight * 0.7f), smallPaint)
+                
+                if (i < setoranItems.size) {
+                    val item = setoranItems[i]
+                    
+                    // Draw surah name with truncation
+                    drawWrappedText(
+                        item.nama, 
+                        53f + col1Width + 2f, 
+                        rowY + (rowHeight * 0.7f), 
+                        col2Width - 5f,
+                        smallPaint
+                    )
+                    
+                    if (item.sudah_setor && item.info_setoran != null) {
+                        // Format date in Indonesian
+                        val formattedDate = formatDateIndonesian(item.info_setoran.tgl_setoran)
+                        
+                        // Draw date with truncation
+                        drawWrappedText(
+                            formattedDate,
+                            53f + col1Width + col2Width + 2f,
+                            rowY + (rowHeight * 0.7f),
+                            col3Width - 5f,
+                            smallPaint
+                        )
+                        
+                        // Draw dosen name with truncation - now with more width
+                        val dosenName = item.info_setoran.dosen_yang_mengesahkan.nama
+                        drawWrappedText(
+                            dosenName,
+                            53f + col1Width + col2Width + col3Width + col4Width + 2f,
+                            rowY + (rowHeight * 0.7f),
+                            col5Width - 5f,
+                            smallPaint
+                        )
+                    } else {
+                        canvas.drawText("-", 53f + col1Width + col2Width + 2f, rowY + (rowHeight * 0.7f), smallPaint)
+                        canvas.drawText("-", 53f + col1Width + col2Width + col3Width + col4Width + 2f, rowY + (rowHeight * 0.7f), smallPaint)
+                    }
+                    
+                } else {
+                    // Empty row
+                    canvas.drawText("-", 53f + col1Width + 2f, rowY + (rowHeight * 0.7f), smallPaint)
+                    canvas.drawText("-", 53f + col1Width + col2Width + 2f, rowY + (rowHeight * 0.7f), smallPaint)
+                    canvas.drawText("-", 53f + col1Width + col2Width + col3Width + col4Width + 2f, rowY + (rowHeight * 0.7f), smallPaint)
+                }
+            }
+            
+            // Draw bottom line of the table with thinner lines
+            canvas.drawLine(50f, tableStartY + 37 * rowHeight + rowHeight, 50f + tableWidth, tableStartY + 37 * rowHeight + rowHeight, thinLinePaint)
+            
+            // Signature section - positioned with more space to ensure visibility
+            val signatureY = tableStartY + 37 * rowHeight + rowHeight + 60f
+            
+            // Format current date - full format for the signature section
+            val dateFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+            val currentDate = dateFormat.format(Date())
+            
+            // Draw improved signature section
+            canvas.drawText("Pekanbaru, $currentDate", 350f, signatureY, paint)
+            
+            // Draw signature boxes with titles
+            // Left signature (Academic advisor)
+            canvas.drawText("Mengetahui,", 80f, signatureY, paint)
+            canvas.drawText("Dosen Pembimbing Akademik", 80f, signatureY + 15, paint)
+            
+            // Draw signature box with thinner lines
+            canvas.drawRect(80f, signatureY + 25, 220f, signatureY + 75, thinLinePaint)
+            
+            // Add name under signature box
+            val dosenPaName = data.info.dosen_pa.nama
+            val dosenPaNip = data.info.dosen_pa.nip ?: "-"
+            canvas.drawText(dosenPaName, 80f, signatureY + 90, paint)
+            canvas.drawText("NIP. $dosenPaNip", 80f, signatureY + 105, smallPaint)
+            
+            // Right signature (Student)
+            canvas.drawText("Mahasiswa", 350f, signatureY + 15, paint)
+            
+            // Draw signature box with thinner lines
+            canvas.drawRect(350f, signatureY + 25, 490f, signatureY + 75, thinLinePaint)
+            
+            // Add name under signature box
+            canvas.drawText(data.info.nama, 350f, signatureY + 90, paint)
+            canvas.drawText("NIM. " + data.info.nim, 350f, signatureY + 105, smallPaint)
+            
+            // Finish the page
+            pdfDocument.finishPage(page)
+            
+            // Create a unique filename based on student info and timestamp
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val studentInitials = data.info.nama.split(" ")
+                .mapNotNull { if (it.isNotEmpty()) it[0].toString() else null }
+                .take(3)
+                .joinToString("")
+                .uppercase()
+            
+            val fileName = "KartuMurojaah_${studentInitials}_${data.info.nim}_$timestamp.pdf"
+            
+            // Save to Downloads directory
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs()
+            }
+            
+            val filePath = File(downloadsDir, fileName)
+            
+            try {
+                // Write the document to the file
+                pdfDocument.writeTo(FileOutputStream(filePath))
+                pdfDocument.close()
+                
+                Toast.makeText(context, "PDF berhasil disimpan di Downloads: $fileName", Toast.LENGTH_LONG).show()
+                
+                // Try to open the PDF
+                try {
+                    val uri = FileProvider.getUriForFile(
+                        context, 
+                        "${context.packageName}.provider",
+                        filePath
+                    )
+                    
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/pdf")
+                        flags = Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+                    
+                    if (intent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(intent)
+                    } else {
+                        Toast.makeText(context, "PDF tersimpan, tetapi tidak ada aplikasi untuk membuka PDF", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    // Just show a success message if opening fails
+                    Toast.makeText(context, "PDF berhasil disimpan di: ${filePath.absolutePath}", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                // Fallback to app's private storage if Downloads access fails
+                val directory = context.getExternalFilesDir(null)?.let { File(it, "PDFs") }
+                if (directory?.exists() == false) {
+                    directory.mkdirs()
+                }
+                
+                val backupFilePath = File(directory, fileName)
+                pdfDocument.writeTo(backupFilePath.outputStream())
+                pdfDocument.close()
+                
+                Toast.makeText(
+                    context, 
+                    "Tidak dapat menyimpan ke Downloads. PDF disimpan di: ${backupFilePath.absolutePath}", 
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
     
     // Function to save image to local storage
     fun saveImageToLocal(uri: Uri): Uri {
@@ -884,6 +1714,35 @@ fun ProfileContent(
                         }
                     }
 
+                    // Updated Export to PDF button with actual data
+                    Button(
+                        onClick = { 
+                            if (state is DashboardState.Success) {
+                                exportToPdf(state)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = tealPrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PictureAsPdf,
+                            contentDescription = "Export to PDF",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Export Kartu Muroja'ah",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+
                     // Tambahkan spacer di bawah untuk scroll area yang cukup
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -974,6 +1833,26 @@ fun SetoranSayaScreen(
     // Define coroutine scope for animations
     val scope = rememberCoroutineScope()
     
+    // Pull to refresh state
+    var refreshing by remember { mutableStateOf(false) }
+    
+    // Handle refresh action
+    val onRefresh = {
+        refreshing = true
+        dashboardViewModel.fetchSetoranSaya()
+    }
+    
+    // Reset refreshing state when data is loaded
+    LaunchedEffect(dashboardState) {
+        if (dashboardState !is DashboardState.Loading) {
+            refreshing = false
+        }
+    }
+    
+    // Create pull refresh state
+    @OptIn(ExperimentalMaterialApi::class)
+    val pullRefreshState = rememberPullRefreshState(refreshing, onRefresh)
+    
     // Definisi warna
     val tealPrimary = Color(0xFF2A9D8F) // Biru kehijauan sesuai permintaan
 
@@ -1019,6 +1898,13 @@ fun SetoranSayaScreen(
         }
     }
 
+    // Main content with pull to refresh
+    @OptIn(ExperimentalMaterialApi::class)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1264,6 +2150,17 @@ fun SetoranSayaScreen(
             
             else -> {}
         }
+        }
+        
+        // Pull to refresh indicator at the top
+        @OptIn(ExperimentalMaterialApi::class)
+        PullRefreshIndicator(
+            refreshing = refreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            backgroundColor = Color.White,
+            contentColor = tealPrimary
+        )
     }
 }
 
@@ -1498,11 +2395,34 @@ fun SetoranDetailScreen(
     val dashboardViewModel: DashboardViewModel = viewModel(factory = DashboardViewModel.getFactory(context))
     val dashboardState by dashboardViewModel.dashboardState.collectAsState()
     
+    // Filter state - default to SUDAH
+    var selectedFilter by remember { mutableStateOf("SUDAH") }
+    
     // Normalize the kategori parameter for comparison
     val normalizedKategori = kategori.trim().uppercase()
     
     val tealPrimary = Color(0xFF2A9D8F)
     val tealPastel = Color(0xFFE0F7FA)
+    
+    // Pull to refresh state
+    var refreshing by remember { mutableStateOf(false) }
+    
+    // Handle refresh action
+    val onRefresh = {
+        refreshing = true
+        dashboardViewModel.fetchSetoranSaya()
+    }
+    
+    // Reset refreshing state when data is loaded
+    LaunchedEffect(dashboardState) {
+        if (dashboardState !is DashboardState.Loading) {
+            refreshing = false
+        }
+    }
+    
+    // Create pull refresh state
+    @OptIn(ExperimentalMaterialApi::class)
+    val pullRefreshState = rememberPullRefreshState(refreshing, onRefresh)
     
     LaunchedEffect(Unit) {
         dashboardViewModel.fetchSetoranSaya()
@@ -1550,12 +2470,19 @@ fun SetoranDetailScreen(
             
         }
     ) { padding ->
+        // Main content with pull to refresh
+        @OptIn(ExperimentalMaterialApi::class)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .pullRefresh(pullRefreshState)
+        ) {
         when (val state = dashboardState) {
             is DashboardState.Loading -> {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                            .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = tealPrimary)
@@ -1577,7 +2504,6 @@ fun SetoranDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
                 ) {
                     // Progress summary
                     Card(
@@ -1652,42 +2578,149 @@ fun SetoranDetailScreen(
                         }
                     }
                     
-                    // Daftar Surah Heading
-                    Row(
+                        // Filter row for selection
+                        Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 16.dp)
                     ) {
+                            // Daftar Surah Heading
                         Text(
                             text = "Daftar Surah",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold
                             ),
-                            modifier = Modifier.weight(1f)
+                                modifier = Modifier.padding(vertical = 8.dp)
                         )
                         
+                            // Filter chips
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                // Sudah filter chip
+                                FilterChip(
+                                    selected = selectedFilter == "SUDAH",
+                                    onClick = { selectedFilter = "SUDAH" },
+                                    label = { 
                         Text(
-                            text = "Urutkan",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = tealPrimary,
-                            modifier = Modifier.clickable { /* Add sorting logic */ }
-                        )
+                                            "Sudah Setor",
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) 
+                                    },
+                                    enabled = true,
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .height(36.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = tealPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        borderColor = tealPrimary.copy(alpha = 0.5f),
+                                        enabled = true,
+                                        selected = selectedFilter == "SUDAH"
+                                    ),
+                                    leadingIcon = if (selectedFilter == "SUDAH") {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color.White
+                                            )
+                                        }
+                                    } else null
+                                )
+                                
+                                // Belum filter chip
+                                FilterChip(
+                                    selected = selectedFilter == "BELUM",
+                                    onClick = { selectedFilter = "BELUM" },
+                                    label = { 
+                                        Text(
+                                            "Belum Setor",
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) 
+                                    },
+                                    enabled = true,
+                                    modifier = Modifier.height(36.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = tealPrimary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        borderColor = tealPrimary.copy(alpha = 0.5f),
+                                        enabled = true,
+                                        selected = selectedFilter == "BELUM"
+                                    ),
+                                    leadingIcon = if (selectedFilter == "BELUM") {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Rounded.RadioButtonUnchecked,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color.White
+                                            )
+                                        }
+                                    } else null
+                                )
+                            }
+                        }
+                        
+                        // Apply filter to surah list
+                        val displaySurah = when (selectedFilter) {
+                            "SUDAH" -> filteredSurah.filter { it.sudah_setor }
+                            "BELUM" -> filteredSurah.filter { !it.sudah_setor }
+                            else -> filteredSurah
                     }
                     
                     // List of Surah
-                    if (filteredSurah.isEmpty()) {
+                        if (displaySurah.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 32.dp),
                             contentAlignment = Alignment.Center
                         ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (selectedFilter == "SUDAH") 
+                                            Icons.Rounded.CheckCircle 
+                                        else 
+                                            Icons.Rounded.RadioButtonUnchecked,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = if (selectedFilter == "SUDAH") 
+                                            tealPrimary.copy(alpha = 0.6f) 
+                                        else 
+                                            Color.Gray.copy(alpha = 0.6f)
+                                    )
+                                    
                             Text(
-                                text = "Tidak ada surah dengan kategori $kategori",
+                                        text = if (selectedFilter == "SUDAH")
+                                            "Belum ada setoran yang divalidasi pada kategori $kategori"
+                                        else
+                                            "Belum ada setoran nih, yuk semangat!",
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = Color.Gray
-                            )
+                                        color = Color.Gray,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    
+                                    if (selectedFilter == "BELUM") {
+                                        Text(
+                                            text = "Ayo segera selesaikan hafalan kategori $kategori Anda 📖",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = tealPrimary,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
                         }
                     } else {
                         LazyColumn(
@@ -1697,11 +2730,12 @@ fun SetoranDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(vertical = 16.dp)
                         ) {
-                            items(filteredSurah) { item ->
+                                items(displaySurah) { item ->
                                 SetoranCard(
                                     nama = item.nama,
                                     label = item.label,
                                     sudahSetor = item.sudah_setor,
+                                        infoSetoran = item.info_setoran,
                                     tealColor = tealPrimary,
                                     tealPastelColor = tealPastel
                                 )
@@ -1714,8 +2748,7 @@ fun SetoranDetailScreen(
             is DashboardState.Error -> {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                            .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -1726,6 +2759,17 @@ fun SetoranDetailScreen(
             }
             
             else -> {}
+            }
+            
+            // Pull to refresh indicator at the top
+            @OptIn(ExperimentalMaterialApi::class)
+            PullRefreshIndicator(
+                refreshing = refreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
+                backgroundColor = Color.White,
+                contentColor = tealPrimary
+            )
         }
     }
 }

@@ -1,4 +1,4 @@
-package com.example.setoranhafalanapp.data
+package dev.mahasiswa.kelompokone.data
 
 import android.content.Context
 import androidx.core.content.edit
