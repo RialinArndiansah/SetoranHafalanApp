@@ -27,9 +27,6 @@ Setoran Hafalan App adalah aplikasi Android modern yang dirancang untuk membantu
 - 📅 Scheduling System for Submissions
 - 📋 Detailed Assessment Records
 - 📈 Progress Reports and Analytics
-- 🔔 Submission Reminders
-- 💾 Offline Data Storage
-- 🔄 Synchronization Capability
 
 [Indonesia]
 - 👤 Manajemen Profil Siswa dan Guru
@@ -39,9 +36,6 @@ Setoran Hafalan App adalah aplikasi Android modern yang dirancang untuk membantu
 - 📅 Sistem Penjadwalan Setoran
 - 📋 Catatan Penilaian Terperinci
 - 📈 Laporan dan Analisis Progress
-- 🔔 Pengingat Jadwal Setoran
-- 💾 Penyimpanan Data Offline
-- 🔄 Kemampuan Sinkronisasi Data
 
 ## 🚀 Technology Stack | Teknologi yang Digunakan
 
