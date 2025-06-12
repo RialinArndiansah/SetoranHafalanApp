@@ -2401,8 +2401,10 @@ fun SetoranDetailScreen(
     // Normalize the kategori parameter for comparison
     val normalizedKategori = kategori.trim().uppercase()
     
+    // Define app colors
     val tealPrimary = Color(0xFF2A9D8F)
     val tealPastel = Color(0xFFE0F7FA)
+    val tealDark = Color(0xFF006666)
     
     // Pull to refresh state
     var refreshing by remember { mutableStateOf(false) }
@@ -2424,6 +2426,9 @@ fun SetoranDetailScreen(
     @OptIn(ExperimentalMaterialApi::class)
     val pullRefreshState = rememberPullRefreshState(refreshing, onRefresh)
     
+    // Scroll state for main content
+    val scrollState = rememberScrollState()
+    
     LaunchedEffect(Unit) {
         dashboardViewModel.fetchSetoranSaya()
     }
@@ -2437,9 +2442,16 @@ fun SetoranDetailScreen(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = kategori,
+                            text = when (normalizedKategori) {
+                                "KP" -> "Setoran Kerja Praktik"
+                                "SEMKP" -> "Setoran Seminar KP"
+                                "DAFTAR_TA" -> "Setoran Daftar TA"
+                                "SEMPRO" -> "Setoran Seminar Proposal"
+                                "SIDANG_TA" -> "Setoran Sidang TA"
+                                else -> "Setoran $kategori"
+                            },
                             color = Color.Black,
-                            style = MaterialTheme.typography.titleLarge.copy(
+                            style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold
                             )
                         )
@@ -2455,314 +2467,391 @@ fun SetoranDetailScreen(
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.White
-                    ),
-                    actions = {
-                        IconButton(onClick = { /* Add search functionality */ }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Search,
-                                contentDescription = "Cari",
-                                tint = Color.Black
-                            )
-                        }
-                    }
+                    )
                 )
-            }           
-            
+            }
         }
     ) { padding ->
-        // Main content with pull to refresh
         @OptIn(ExperimentalMaterialApi::class)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .pullRefresh(pullRefreshState)
+                .background(Color(0xFFF8F8F8))
         ) {
-        when (val state = dashboardState) {
-            is DashboardState.Loading -> {
-                Box(
-                    modifier = Modifier
-                            .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = tealPrimary)
-                }
-            }
-            
-            is DashboardState.Success -> {
-                val data = state.data.data
-                
-                // Filter surah berdasarkan label/kategori yang sudah dinormalisasi
-                val filteredSurah = data.setoran.detail.filter { 
-                    it.label.trim().uppercase() == normalizedKategori
-                }
-                
-                val completedCount = filteredSurah.count { it.sudah_setor }
-                val totalCount = filteredSurah.size
-                val progressPercentage = if (totalCount > 0) (completedCount * 100) / totalCount else 0
-                
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) {
-                    // Progress summary
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.White
-                        ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 2.dp
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+            when (val state = dashboardState) {
+                is DashboardState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
+                        CircularProgressIndicator(color = tealPrimary)
+                    }
+                }
+                
+                is DashboardState.Success -> {
+                    val data = state.data.data
+                    
+                    // Filter surah berdasarkan label/kategori yang sudah dinormalisasi
+                    val filteredSurah = data.setoran.detail.filter { 
+                        it.label.trim().uppercase() == normalizedKategori
+                    }
+                    
+                    val completedCount = filteredSurah.count { it.sudah_setor }
+                    val totalCount = filteredSurah.size
+                    val progressPercentage = if (totalCount > 0) (completedCount * 100) / totalCount else 0
+
+                    // Apply filter to surah list
+                    val displaySurah = when (selectedFilter) {
+                        "SUDAH" -> filteredSurah.filter { it.sudah_setor }
+                        "BELUM" -> filteredSurah.filter { !it.sudah_setor }
+                        else -> filteredSurah
+                    }
+                    
+                    // Use a scrollable column for the main content
+                    // This approach allows the content to scroll up completely
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                    ) {
+                        // Progress summary card
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // Text content
-                            Column {
-                                Text(
-                                    text = "Progress Setoran $kategori",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                                
-                                Text(
-                                    text = "$completedCount dari $totalCount surah",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.Gray
-                                )
-                            }
-                            
-                            // Circular progress indicator with larger size
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(80.dp)
-                            ) {
-                                // Background circle
-                                Canvas(modifier = Modifier.size(80.dp)) {
-                                    drawCircle(
-                                        color = tealPastel,
-                                        radius = size.minDimension / 2,
-                                        style = Stroke(width = 10.dp.toPx())
-                                    )
-                                }
-                                
-                                // Progress circle
-                                Canvas(modifier = Modifier.size(80.dp)) {
-                                    drawArc(
-                                        color = tealPrimary,
-                                        startAngle = -90f,
-                                        sweepAngle = 3.6f * progressPercentage,
-                                        useCenter = false,
-                                        style = Stroke(width = 10.dp.toPx())
-                                    )
-                                }
-                                
-                                // Progress text
-                                Text(
-                                    text = "$progressPercentage%",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = tealPrimary
-                                    )
-                                )
-                            }
-                        }
-                    }
-                    
-                        // Filter row for selection
-                        Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                    ) {
-                            // Daftar Surah Heading
-                        Text(
-                            text = "Daftar Surah",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White
                             ),
-                                modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                        
-                            // Filter chips
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 2.dp
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 8.dp),
-                                horizontalArrangement = Arrangement.Start
+                                    .padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Sudah filter chip
-                                FilterChip(
-                                    selected = selectedFilter == "SUDAH",
-                                    onClick = { selectedFilter = "SUDAH" },
-                                    label = { 
-                        Text(
-                                            "Sudah Setor",
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                        ) 
-                                    },
-                                    enabled = true,
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .height(36.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = tealPrimary,
-                                        selectedLabelColor = Color.White
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        borderColor = tealPrimary.copy(alpha = 0.5f),
-                                        enabled = true,
-                                        selected = selectedFilter == "SUDAH"
-                                    ),
-                                    leadingIcon = if (selectedFilter == "SUDAH") {
-                                        {
-                                            Icon(
-                                                imageVector = Icons.Rounded.CheckCircle,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                                tint = Color.White
-                                            )
-                                        }
-                                    } else null
-                                )
-                                
-                                // Belum filter chip
-                                FilterChip(
-                                    selected = selectedFilter == "BELUM",
-                                    onClick = { selectedFilter = "BELUM" },
-                                    label = { 
+                                // Text content with improved spacing
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Progress Setoran",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = tealPrimary
+                                        )
+                                    )
+                                    
+                                    Text(
+                                        text = "$completedCount dari $totalCount surah",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.Gray
+                                    )
+                                    
+                                    // Additional text for more context
+                                    if (completedCount == totalCount && totalCount > 0) {
                                         Text(
-                                            "Belum Setor",
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                        ) 
-                                    },
-                                    enabled = true,
-                                    modifier = Modifier.height(36.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = tealPrimary,
-                                        selectedLabelColor = Color.White
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        borderColor = tealPrimary.copy(alpha = 0.5f),
-                                        enabled = true,
-                                        selected = selectedFilter == "BELUM"
-                                    ),
-                                    leadingIcon = if (selectedFilter == "BELUM") {
-                                        {
-                                            Icon(
-                                                imageVector = Icons.Rounded.RadioButtonUnchecked,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                                tint = Color.White
+                                            text = "Setoran sudah lengkap!",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = tealPrimary
+                                        )
+                                    } else if (totalCount > 0) {
+                                        Text(
+                                            text = "Tersisa ${totalCount - completedCount} surah",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = Color.Gray
+                                        )
+                                    }
+                                }
+                                
+                                // Circular progress indicator
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(90.dp)
+                                        .padding(4.dp)
+                                ) {
+                                    // Background circle
+                                    Canvas(modifier = Modifier.size(80.dp)) {
+                                        drawCircle(
+                                            color = tealPastel,
+                                            radius = size.minDimension / 2,
+                                            style = Stroke(width = 8.dp.toPx())
+                                        )
+                                    }
+                                    
+                                    // Progress circle
+                                    Canvas(modifier = Modifier.size(80.dp)) {
+                                        drawArc(
+                                            color = tealPrimary,
+                                            startAngle = -90f,
+                                            sweepAngle = 3.6f * progressPercentage,
+                                            useCenter = false,
+                                            style = Stroke(width = 8.dp.toPx())
+                                        )
+                                    }
+                                    
+                                    // Progress text with percentage
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "$progressPercentage%",
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = tealPrimary
                                             )
-                                        }
-                                    } else null
-                                )
+                                        )
+                                        Text(
+                                            text = "Selesai",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = tealDark
+                                        )
+                                    }
+                                }
                             }
                         }
                         
-                        // Apply filter to surah list
-                        val displaySurah = when (selectedFilter) {
-                            "SUDAH" -> filteredSurah.filter { it.sudah_setor }
-                            "BELUM" -> filteredSurah.filter { !it.sudah_setor }
-                            else -> filteredSurah
-                    }
-                    
-                    // List of Surah
-                        if (displaySurah.isEmpty()) {
-                        Box(
+                        // Filter section
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 32.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 1.dp
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                // Daftar Surah Heading
+                                Text(
+                                    text = "Daftar Surah",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    ),
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                                
+                                // Filter chips
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.Start,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Filter:",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    
+                                    // Sudah filter chip
+                                    FilterChip(
+                                        selected = selectedFilter == "SUDAH",
+                                        onClick = { selectedFilter = "SUDAH" },
+                                        label = { 
+                                            Text(
+                                                "Sudah Setor",
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            ) 
+                                        },
+                                        enabled = true,
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .height(36.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = tealPrimary,
+                                            selectedLabelColor = Color.White
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            borderColor = tealPrimary.copy(alpha = 0.5f),
+                                            enabled = true,
+                                            selected = selectedFilter == "SUDAH"
+                                        ),
+                                        leadingIcon = if (selectedFilter == "SUDAH") {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.CheckCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = Color.White
+                                                )
+                                            }
+                                        } else null
+                                    )
+                                    
+                                    // Belum filter chip
+                                    FilterChip(
+                                        selected = selectedFilter == "BELUM",
+                                        onClick = { selectedFilter = "BELUM" },
+                                        label = { 
+                                            Text(
+                                                "Belum Setor",
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            ) 
+                                        },
+                                        enabled = true,
+                                        modifier = Modifier.height(36.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = tealPrimary,
+                                            selectedLabelColor = Color.White
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            borderColor = tealPrimary.copy(alpha = 0.5f),
+                                            enabled = true,
+                                            selected = selectedFilter == "BELUM"
+                                        ),
+                                        leadingIcon = if (selectedFilter == "BELUM") {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.RadioButtonUnchecked,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = Color.White
+                                                )
+                                            }
+                                        } else null
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Display surah list or empty state
+                        if (displaySurah.isEmpty()) {
+                            // Empty state
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(400.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.padding(horizontal = 32.dp)
                                 ) {
+                                    // Empty state icon
                                     Icon(
                                         imageVector = if (selectedFilter == "SUDAH") 
                                             Icons.Rounded.CheckCircle 
                                         else 
                                             Icons.Rounded.RadioButtonUnchecked,
                                         contentDescription = null,
-                                        modifier = Modifier.size(48.dp),
+                                        modifier = Modifier.size(64.dp),
                                         tint = if (selectedFilter == "SUDAH") 
                                             tealPrimary.copy(alpha = 0.6f) 
                                         else 
                                             Color.Gray.copy(alpha = 0.6f)
                                     )
                                     
-                            Text(
+                                    // Empty state text
+                                    Text(
                                         text = if (selectedFilter == "SUDAH")
-                                            "Belum ada setoran yang divalidasi pada kategori $kategori"
+                                            "Belum ada setoran yang divalidasi pada kategori ini"
                                         else
-                                            "Belum ada setoran nih, yuk semangat!",
-                                style = MaterialTheme.typography.bodyLarge,
+                                            "Belum ada setoran pada kategori ini",
+                                        style = MaterialTheme.typography.bodyLarge,
                                         color = Color.Gray,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
                                     
                                     if (selectedFilter == "BELUM") {
                                         Text(
-                                            text = "Ayo segera selesaikan hafalan kategori $kategori Anda 📖",
+                                            text = "Ayo segera selesaikan hafalan Anda untuk memenuhi prasyarat 📖",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = tealPrimary,
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                         )
                                     }
                                 }
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 16.dp)
-                        ) {
-                                items(displaySurah) { item ->
-                                SetoranCard(
-                                    nama = item.nama,
-                                    label = item.label,
-                                    sudahSetor = item.sudah_setor,
+                            }
+                        } else {
+                            // Display list of surah items - not using LazyColumn because we're in a ScrollColumn
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                displaySurah.forEach { item ->
+                                    SetoranCard(
+                                        nama = item.nama,
+                                        label = item.label,
+                                        sudahSetor = item.sudah_setor,
                                         infoSetoran = item.info_setoran,
-                                    tealColor = tealPrimary,
-                                    tealPastelColor = tealPastel
-                                )
+                                        tealColor = tealPrimary,
+                                        tealPastelColor = tealPastel
+                                    )
+                                }
+                                
+                                // Add some bottom spacing
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
                     }
                 }
-            }
-            
-            is DashboardState.Error -> {
-                Box(
-                    modifier = Modifier
-                            .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Error: ${state.message}",
-                        color = Color.Red
-                    )
+                
+                is DashboardState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Error,
+                                contentDescription = null,
+                                tint = Color.Red.copy(alpha = 0.7f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            
+                            Text(
+                                text = "Error: ${state.message}",
+                                color = Color.Red,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Button(
+                                onClick = { dashboardViewModel.fetchSetoranSaya() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = tealPrimary
+                                )
+                            ) {
+                                Text("Coba Lagi")
+                            }
+                        }
+                    }
                 }
+                
+                else -> {}
             }
             
-            else -> {}
-            }
-            
-            // Pull to refresh indicator at the top
-            @OptIn(ExperimentalMaterialApi::class)
+            // Pull to refresh indicator
             PullRefreshIndicator(
                 refreshing = refreshing,
                 state = pullRefreshState,
